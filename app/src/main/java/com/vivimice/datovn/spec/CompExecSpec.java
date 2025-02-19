@@ -18,7 +18,6 @@ package com.vivimice.datovn.spec;
 import java.util.List;
 import java.util.regex.Pattern;
 
-import com.vivimice.datovn.stage.CompStage;
 import com.vivimice.datovn.unit.CompUnit;
 
 /**
@@ -27,25 +26,30 @@ import com.vivimice.datovn.unit.CompUnit;
  * An immutable description of a computation unit ({@link CompUnit}). Any 
  * CompUnit must be created from a CompExecSpec.
  * 
- * A CompExecSpec is immutable and identified by a key, which is unique 
- * within the scope of the all {@link CompStage}s during the same build.
- * 
+ * A CompExecSpec should be json-serializable.
  */
 public interface CompExecSpec {
 
     public static final Pattern NAME_PATTERN = Pattern.compile("[a-zA-Z0-9_.][a-zA-Z0-9_.-]+");
 
     /**
-     * Returns the unique identifier for the computation unit this specification is for.
+     * Returns an opaque identifier for this specification.
      * 
-     * Won't be null.
+     * An opaque identifier is a unique, non-human-readable string that
+     * identifies a specification's significant properties. If two specifications
+     * shares the same opaque identifier, they are considered equivalent.
+     * 
+     * Technically, implementations can create this opaque identifier by digesting
+     * all significant properties, as well as their class name, of this specification 
+     * using a hash function, then encoding the digest using Base64 or Hexadecimal 
+     * encoding or similar. 
      */
-    String getKey();
+    String getOpaqueIdentifier();
 
     /**
      * Returns the name of the computation unit this specification is for.
      * 
-     * The name must match {@link #NAME_PATTERN}.
+     * The name must match {@link #NAME_PATTERN}. Names must be unique across the same stage.
      * 
      * Won't be null.
      */

@@ -123,14 +123,15 @@ public class ActionDocumentStream {
 
                     if (line == null) {
                         eof = true;
+                        if (buffer == null) {
+                            return null;
+                        }
                         return map(buffer, documentStartLineNumber);
                     } else if (line == "---") {
                         // new document
                         String source = buffer;
                         buffer = line + "\n";
-                        if (!source.isEmpty()) {
-                            return map(source, documentStartLineNumber);
-                        }
+                        return map(source, documentStartLineNumber);
                     } else {
                         buffer += line + "\n";
                     }
@@ -138,6 +139,10 @@ public class ActionDocumentStream {
             }
 
             private T map(String document, int lineNumber) {
+                if (document.isBlank()) {
+                    return null;
+                }
+                
                 try {
                     return mapper.apply(yamlMapper.readValue(document, new TypeReference<Map<String, Object>>() {}), lineNumber);
                 } catch (IOException ex) {

@@ -15,9 +15,12 @@
  */
 package com.vivimice.datovn.unit;
 
+import com.vivimice.datovn.DatovnRuntimeException;
 import com.vivimice.datovn.icue.IcueSpec;
 import com.vivimice.datovn.icue.IcueUnit;
 import com.vivimice.datovn.spec.CompExecSpec;
+import com.vivimice.datovn.stage.bootstrap.StageBootstrapCompUnit;
+import com.vivimice.datovn.stage.bootstrap.StageBootstrapSpec;
 
 public class CompUnits {
 
@@ -28,13 +31,12 @@ public class CompUnits {
      * @return The computation unit.
      */
     public static CompUnit create(CompExecSpec spec) {
-        assert spec != null;
-
-        if (spec instanceof IcueSpec) {
-            return new IcueUnit((IcueSpec) spec);
-        }
-
-        throw new IllegalArgumentException("Unknown computation specification: " + spec.getKey());
+        return switch (spec) {
+            case null -> throw new NullPointerException("specification can't be null");
+            case IcueSpec icueSpec -> new IcueUnit(icueSpec);
+            case StageBootstrapSpec stageBootstrapSpec -> new StageBootstrapCompUnit(stageBootstrapSpec);
+            default -> throw new DatovnRuntimeException("Unknown computation specification: " + spec.getName());
+        };
     }
 
 }

@@ -319,7 +319,7 @@ public class OffendingPathAccessChecker<T> {
     }
 
     private PathAccessOperation<T> onPathAccess(PathAccessOperation<T> op) {
-        assert op.path().isAbsolute() : "Path must be absolute";
+        assert op.path().isAbsolute() : "Not absolute: " + op.path();
         assert op.owner() != null : "Owner must not be null";
         assert op.reason() != null : "Reason must not be null";
 

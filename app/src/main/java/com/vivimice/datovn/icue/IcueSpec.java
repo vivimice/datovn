@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import com.vivimice.datovn.spec.CompExecSpec;
+import com.vivimice.datovn.util.DigestUtils;
 
 public final class IcueSpec implements CompExecSpec {
 
@@ -31,6 +32,13 @@ public final class IcueSpec implements CompExecSpec {
      * Won't be null.
      */
     private final Path executable;
+
+    /**
+     * An additional revision string, used to alter opaque identifier manually in spec.
+     * 
+     * Might be null.
+     */
+    private final String revision;
 
     /**
      * Arguments to pass to the ICUE executable.
@@ -54,13 +62,11 @@ public final class IcueSpec implements CompExecSpec {
     private final String location;
 
     /**
-     * Unique identifier for this ICUE specification.
-     * 
-     * Won't be null.
+     * Opaque identifier for this spec.
      */
-    private final String key;
+    private final String opaqueIdentifier;
 
-    public IcueSpec(String name, Path executable, List<String> args, List<String> params, String location) {
+    public IcueSpec(String name, String revision, Path executable, List<String> args, List<String> params, String location) {
         if (executable == null || args == null || params == null || location == null) {
             throw new NullPointerException();
         }
@@ -69,8 +75,18 @@ public final class IcueSpec implements CompExecSpec {
         this.args = args;
         this.params = params;
         this.location = location;
-        this.key = executable + " " + args.stream().collect(Collectors.joining(" ")) + ";" + params.stream().collect(Collectors.joining(","));
-        this.name = name != null ? name : key;
+        this.revision = revision;
+
+        String keyProperties = "icue:" + executable + ":" + args.stream().collect(Collectors.joining(" ")) + ";" + params.stream().collect(Collectors.joining(","));
+        if (revision != null) {
+            keyProperties += "@rev=" + revision;
+        }
+        this.opaqueIdentifier = DigestUtils.sha256Hex(keyProperties);
+
+        if (name == null) {
+            name = "unnamed_" + opaqueIdentifier.substring(0, 8) + "";
+        }
+        this.name = name;
     }
 
     @Override
@@ -78,9 +94,13 @@ public final class IcueSpec implements CompExecSpec {
         return name;
     }
 
+    public String getRevision() {
+        return revision;
+    }
+
     @Override
-    public String getKey() {
-        return key;
+    public String getOpaqueIdentifier() {
+        return opaqueIdentifier;
     }
 
     @Override

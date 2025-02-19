@@ -15,8 +15,6 @@
  */
 package com.vivimice.datovn.unit;
 
-import org.slf4j.MDC;
-
 import com.vivimice.datovn.spec.CompExecSpec;
 
 public abstract class AbstractCompUnit<T extends CompExecSpec> implements CompUnit {
@@ -32,12 +30,7 @@ public abstract class AbstractCompUnit<T extends CompExecSpec> implements CompUn
 
     @Override
     public void execute(UnitContext ctx, CompActionRecorder receiver) {
-        var mdc = MDC.putCloseable("spec", spec.getKey());
-        try {
-            doCompute(ctx, receiver);
-        } finally {
-            mdc.close();
-        }
+        doCompute(ctx, receiver);
     }
 
     protected abstract void doCompute(UnitContext ctx, CompActionRecorder receiver);

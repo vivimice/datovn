@@ -13,19 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.vivimice.datovn.spec;
+package com.vivimice.datovn.stage.bootstrap;
 
 import java.util.List;
 
+import com.vivimice.datovn.spec.CompExecSpec;
+import com.vivimice.datovn.util.DigestUtils;
+
 public final class StageBootstrapSpec implements CompExecSpec {
 
-    private final String stageName;
+    private static final String OPAQUE_IDENTIFIER = DigestUtils.sha256Hex("bootstrap");
     private final String location;
     
-    public StageBootstrapSpec(String stageName, String location) {
-        assert stageName != null;
+    public StageBootstrapSpec(String location) {
         assert location != null;
-        this.stageName = stageName;
         this.location = location;
     }
 
@@ -34,10 +35,9 @@ public final class StageBootstrapSpec implements CompExecSpec {
         return "bootstrap";
     }
 
-
     @Override
-    public String getKey() {
-        return "bootstrap:" + stageName;
+    public String getOpaqueIdentifier() {
+        return OPAQUE_IDENTIFIER;
     }
 
     @Override

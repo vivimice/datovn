@@ -1,4 +1,4 @@
-/*
+/**
  * Copyright 2025 vivimice@gmail.com
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,13 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.vivimice.datovn.action;
+package com.vivimice.datovn.stage.bootstrap;
 
 import java.util.List;
 
-public record LoadedSketches(
-    List<CompAction.Sketch<?>> sketches, 
-    String updateTime
-) {
+/**
+ * The descriptor POJO for the stage bootstrap unit.
+ */
+public class StageBootstrapDescriptor {
+
+    private List<UnitDescriptor> units;
+
+    public List<UnitDescriptor> getUnits() {
+        return units;
+    }
+
+    public void setUnits(List<UnitDescriptor> units) {
+        this.units = units;
+    }
 
 }

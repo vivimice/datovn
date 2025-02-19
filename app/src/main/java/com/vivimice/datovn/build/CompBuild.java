@@ -22,11 +22,12 @@ import java.util.concurrent.Executor;
 
 import com.vivimice.datovn.DatovnRuntimeException;
 import com.vivimice.datovn.action.ActionsStore;
+import com.vivimice.datovn.action.MessageLevel;
 import com.vivimice.datovn.profiler.ProfilerCloseable;
 import com.vivimice.datovn.profiler.StageProfiler;
-import com.vivimice.datovn.spec.StageBootstrapSpec;
 import com.vivimice.datovn.stage.CompStage;
 import com.vivimice.datovn.stage.StageContext;
+import com.vivimice.datovn.stage.bootstrap.StageBootstrapSpec;
 
 public class CompBuild {
 
@@ -46,6 +47,11 @@ public class CompBuild {
         try (ProfilerCloseable pc = context.getProfiler().wrapBuild()) {
             // every directory under the build directory corresponding to a stage
             Files.list(buildDirectory).forEach(p -> {
+                if (p.getFileName().toString().startsWith(".")) {
+                    // we skip hidden directories (e.g. .git) and files
+                    return;
+                }
+
                 if (Files.isDirectory(p)) {
                     runStage(p);
                 }
@@ -59,11 +65,12 @@ public class CompBuild {
         StageContext stageContext = new StageContextImpl(stageDir);
         CompStage stage = new CompStage(stageContext);
         String location = context.getBuildDirectory().relativize(stageDir).toString();
-        stage.start(new StageBootstrapSpec(stageContext.getStageName(), location));
+        stage.start(new StageBootstrapSpec(location));
     }
 
     private class StageContextImpl implements StageContext {
 
+        private final StageProfiler profiler = context.getProfiler().createStageProfiler();
         private final Path stageDirectory;
         private final String name;
 
@@ -94,7 +101,12 @@ public class CompBuild {
 
         @Override
         public StageProfiler getProfiler() {
-            return context.getProfiler().createStageProfiler();
+            return profiler;
+        }
+
+        @Override
+        public void logMessage(MessageLevel level, String message) {
+            context.logMessage(level, message);
         }
 
     }

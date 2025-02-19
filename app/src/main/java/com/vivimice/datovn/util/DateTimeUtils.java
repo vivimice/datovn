@@ -13,23 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.vivimice.datovn.unit.bootstrap;
+package com.vivimice.datovn.util;
 
-import java.util.List;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 
-/**
- * The descriptor POJO for the stage bootstrap unit.
- */
-public class StageBootstrapDescriptor {
+public class DateTimeUtils {
 
-    private List<UnitDescriptor> units;
-
-    public List<UnitDescriptor> getUnits() {
-        return units;
-    }
-
-    public void setUnits(List<UnitDescriptor> units) {
-        this.units = units;
+    /**
+     * Converts a timestamp in milliseconds since the epoch to an ISO 8601 formatted date-time string.
+     */
+    public static String toIsoDateTime(long timestamp) {
+        Instant instant = Instant.ofEpochMilli(timestamp);
+        DateTimeFormatter formatter = DateTimeFormatter.ISO_DATE_TIME.withZone(ZoneId.systemDefault());
+        return instant.atZone(ZoneId.systemDefault()).format(formatter);
     }
 
 }

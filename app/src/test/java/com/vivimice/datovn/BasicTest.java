@@ -17,11 +17,38 @@ package com.vivimice.datovn;
 
 import org.junit.jupiter.api.Test;
 
+import static com.vivimice.datovn.action.MessageLevel.*;
+
 public class BasicTest {
 
     @Test
     public void emptyTest() {
         new DatovnTester("empty").run().assertSuccess();
+    }
+
+    @Test
+    public void emptyStageTest() {
+        new DatovnTester("empty-stage").run().assertSuccess();
+    }
+
+    @Test
+    public void emptyStageYmlTest() {
+        new DatovnTester("empty-stage-yml").run().assertSuccess();
+    }
+
+    @Test
+    public void singleStageTest() {
+        new DatovnTester("single-stage").run()
+            .assertSuccess()
+            .assertHasMessage(INFO, "Hello, World!");
+    }
+
+    @Test
+    public void duplicateNamesTest() {
+        new DatovnTester("duplicate-names").run()
+            .assertFailure()
+            .assertWithErrors(1)
+            .assertHasMessage(FATAL, "Spec 'hello-world' already scheduled in the same stage. Duplicate specs with same names in the same stage are not allowed.");
     }
 
 }

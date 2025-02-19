@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.vivimice.datovn.unit.bootstrap;
+package com.vivimice.datovn.stage.bootstrap;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -29,6 +29,7 @@ import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 @JsonDeserialize(using = IcueUnitDescriptor.JsonDeserializer.class)
 public class IcueUnitDescriptor extends UnitDescriptor {
 
+    private String revision;
     private String executable;
     private List<String> args;
 
@@ -48,6 +49,14 @@ public class IcueUnitDescriptor extends UnitDescriptor {
         this.args = args;
     }
 
+    public String getRevision() {
+        return revision;
+    }
+
+    public void setRevision(String revision) {
+        this.revision = revision;
+    }
+
     public static class JsonDeserializer extends StdDeserializer<IcueUnitDescriptor> {
 
         public JsonDeserializer() {
@@ -56,6 +65,7 @@ public class IcueUnitDescriptor extends UnitDescriptor {
 
         @Override
         public IcueUnitDescriptor deserialize(JsonParser p, DeserializationContext ctx) throws IOException {
+            // TODO: get correct json location
             JsonNode node = p.readValueAsTree();
 
             IcueUnitDescriptor descriptor = new IcueUnitDescriptor();

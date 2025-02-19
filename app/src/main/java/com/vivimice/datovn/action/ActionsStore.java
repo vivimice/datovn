@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -26,6 +27,7 @@ import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
@@ -33,6 +35,7 @@ import com.vivimice.datovn.DatovnRuntimeException;
 import com.vivimice.datovn.build.BuildContext;
 import com.vivimice.datovn.spec.CompExecSpec;
 import com.vivimice.datovn.stage.StageContext;
+import com.vivimice.datovn.util.DateTimeUtils;
 
 public class ActionsStore {
 
@@ -40,6 +43,9 @@ public class ActionsStore {
 
     private static final String CURRENT_FILE_VERSION = "v1";
     private static final ObjectMapper actionsMapper = new ObjectMapper(new YAMLFactory());
+    static {
+        actionsMapper.setSerializationInclusion(Include.NON_NULL);
+    }
 
     private final Path stageDirectory;
     private final Path storeDirectory;
@@ -74,13 +80,13 @@ public class ActionsStore {
             actions.add(sketch.toAction(convertContext));
         }
 
-        long updateTime = System.currentTimeMillis();
+        String updateTime = DateTimeUtils.toIsoDateTime(System.currentTimeMillis());
 
-        Map<String, Object> data = Map.of(
-            "version", CURRENT_FILE_VERSION,
-            "updateTime", updateTime,
-            "actions", actions
-        );
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("version", CURRENT_FILE_VERSION);
+        data.put("specOpaqueId", spec.getOpaqueIdentifier());
+        data.put("updateTime", updateTime);
+        data.put("actions", actions);
 
         Path actionsFile = getActionsFile(spec);
         logger.debug("Writing actions to: {}", actionsFile);
@@ -110,7 +116,7 @@ public class ActionsStore {
         Path actionsFile = getActionsFile(spec);
         logger.debug("Loading actions from: {}", actionsFile);
         if (!Files.exists(actionsFile)) {
-            logger.debug("Actions file not found: ", actionsFile);
+            logger.debug("Actions file not found: {}", actionsFile);
             return null;
         }
 
@@ -121,26 +127,41 @@ public class ActionsStore {
             throw new DatovnRuntimeException("i/o error while reading action from file: " + actionsFile, ex);
         }
 
+        // check version compatibility
         if (Objects.equals(data.get("version"), CURRENT_FILE_VERSION)) {
             throw new DatovnRuntimeException("action file version is not compatible with the current version '" + CURRENT_FILE_VERSION + "'. File: " + actionsFile);
         }
 
-        
-        long updateTime;
+        String specOpaqueId;
+        String updateTime;
         List<CompAction> actions;
         try {
-            updateTime = actionsMapper.convertValue(data.get("updateTime"), Long.class);
+            specOpaqueId = actionsMapper.convertValue(data.get("specOpaqueId"), String.class);
+            updateTime = actionsMapper.convertValue(data.get("updateTime"), String.class);
             actions = actionsMapper.convertValue(data.get("actions"), new TypeReference<List<CompAction>>() {});
         } catch (IllegalArgumentException ex) {
             throw new DatovnRuntimeException("malformed action data in file: " + actionsFile, ex);
         }
 
+        // check opaque identifier which we'd recorded previously
+        // If mismatch, means the spec we'd recorded has been changed
+        logger.trace("Validating spec opaque identifier ...");
+        if (!Objects.equals(specOpaqueId, spec.getOpaqueIdentifier())) {
+            logger.debug("Spec opaque identifier mismatch. Expected: {}, Found: {}.", spec.getOpaqueIdentifier(), specOpaqueId);
+            return null;
+        }
+
         // validate the actions
-        logger.debug("Validating actions...");
+        logger.debug("Validating actions ...");
+        int index = 0;
         for (CompAction action : actions) {
             boolean upToDate = action.isUpToDate(mappingContext);
             if (!upToDate) {
-                logger.debug("Outdated action found.");
+                if (logger.isTraceEnabled()) {
+                    logger.trace("Outdated action found (index #{}): {}", index, action);
+                } else {
+                    logger.debug("Outdated action found (index #{}).", index);
+                }
                 return null;
             }
         }

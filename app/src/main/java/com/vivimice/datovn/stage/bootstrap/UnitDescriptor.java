@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.vivimice.datovn.unit.bootstrap;
+package com.vivimice.datovn.stage.bootstrap;
 
 import java.io.IOException;
 import java.util.List;
@@ -84,14 +84,6 @@ public class UnitDescriptor {
                 type = typeNode.asText();
             }
 
-            JsonNode nameNode = node.get("name");
-            if (nameNode != null && !(nameNode instanceof NullNode)) {
-                String name = nameNode.asText();
-                if (!CompExecSpec.NAME_PATTERN.matcher(name).matches()) {
-                    throw new JsonMappingException(p, "Invalid unit name: " + name);
-                }
-            }
-
             switch (type) {
                 case "icue":
                     descriptor = p.getCodec().treeToValue(node, IcueUnitDescriptor.class);
@@ -100,7 +92,24 @@ public class UnitDescriptor {
                     throw new JsonMappingException(p, "Unknown unit type: " + type);
             }
 
+            // set name
+            JsonNode nameNode = node.get("name");
+            if (nameNode != null && !(nameNode instanceof NullNode)) {
+                String name = nameNode.asText();
+                if (!CompExecSpec.NAME_PATTERN.matcher(name).matches()) {
+                    throw new JsonMappingException(p, "Invalid unit name: " + name);
+                }
+                descriptor.setName(name);
+            }
+
+            // set location
             descriptor.setLocation(location);
+
+            // set default values
+            if (descriptor.getParams() == null) {
+                descriptor.setParams(List.of());
+            }
+
             return descriptor;
         }
     }

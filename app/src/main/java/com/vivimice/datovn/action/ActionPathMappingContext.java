@@ -34,39 +34,39 @@ public class ActionPathMappingContext {
     }
 
     public String stageToStore(String stagePath) {
-        return storeDirectory.relativize(stageDirectory.resolve(stagePath)).toString();
+        return storeDirectory.relativize(stageDirectory.resolve(stagePath)).normalize().toString();
     }
 
     public String storeToStage(String stagePath) {
-        return stageDirectory.relativize(storeDirectory.resolve(stagePath)).toString();
+        return stageDirectory.relativize(storeDirectory.resolve(stagePath)).normalize().toString();
     }
 
     /**
      * Resolve the given stage-relative path string into a java.nio.file.Path
      */
     public Path resolveFromStage(String stagePath) {
-        return stageDirectory.resolve(stagePath);
+        return stageDirectory.resolve(stagePath).normalize();
     }
 
     /**
      * Resolve the given store-relative path string into a java.nio.file.Path
      */
     public Path resolveFromStore(String storePath) {
-        return storeDirectory.resolve(storePath);
+        return storeDirectory.resolve(storePath).normalize();
     }
 
     /**
      * Relativize the given path to the stage root.
      */
     public String relativizeToStage(Path path) {
-        return stageDirectory.relativize(path).toString();
+        return stageDirectory.relativize(path).normalize().toString();
     }
 
     /**
      * Relativize the given path to the action store root.
      */
     public String relativizeToStore(Path path) {
-        return storeDirectory.relativize(path).toString();
+        return storeDirectory.relativize(path).normalize().toString();
     }
 
 

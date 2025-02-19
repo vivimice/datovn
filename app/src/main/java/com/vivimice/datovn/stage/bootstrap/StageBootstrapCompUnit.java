@@ -13,21 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.vivimice.datovn.unit.bootstrap;
+package com.vivimice.datovn.stage.bootstrap;
 
-import java.io.BufferedReader;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.vivimice.datovn.icue.IcueSpec;
-import com.vivimice.datovn.spec.StageBootstrapSpec;
+import com.vivimice.datovn.spec.CompExecSpec;
 import com.vivimice.datovn.unit.AbstractCompUnit;
 import com.vivimice.datovn.unit.CompActionRecorder;
 import com.vivimice.datovn.unit.UnitContext;
@@ -46,7 +43,7 @@ public class StageBootstrapCompUnit extends AbstractCompUnit<StageBootstrapSpec>
         Path path = ctx.getWorkingDirectory().resolve(CONFIG_FILENAME);
 
         recorder.recordCheckFileExists(CONFIG_FILENAME);
-        if (Files.exists(path)) {
+        if (!Files.exists(path)) {
             recorder.recordWarning("not found: " + path);
             return;
         } else if (!Files.isRegularFile(path)) {
@@ -56,8 +53,8 @@ public class StageBootstrapCompUnit extends AbstractCompUnit<StageBootstrapSpec>
 
         recorder.recordReadFile(CONFIG_FILENAME);
         StageBootstrapDescriptor descriptor;
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(path.toFile()), StandardCharsets.UTF_8))) {
-            descriptor = mapper.readValue(reader, StageBootstrapDescriptor.class);
+        try {
+            descriptor = mapper.readValue(path.toFile(), StageBootstrapDescriptor.class);
         } catch (JsonProcessingException ex) {
             recorder.recordError("malformed: " + path + ". cause: " + ex.getMessage());
             return;
@@ -66,19 +63,39 @@ public class StageBootstrapCompUnit extends AbstractCompUnit<StageBootstrapSpec>
             return;
         }
 
+        List<UnitDescriptor> units = descriptor.getUnits();
+        if (units == null) {
+            units = List.of();
+        }
+
         for (UnitDescriptor unit : descriptor.getUnits()) {
+            CompExecSpec spec;
             switch (unit) {
                 case IcueUnitDescriptor icueUnit:
-                    Path executablePath = ctx.getWorkingDirectory().resolve(icueUnit.getExecutable());
-                    IcueSpec spec = new IcueSpec(unit.getName(), executablePath, icueUnit.getArgs(), icueUnit.getParams(), icueUnit.getLocation().toString());
-                    recorder.recordInfo("Scheduled ICUE unit: " + spec.getKey());
-                    recorder.recordExec(spec);
+                    Path executablePath = Path.of(icueUnit.getExecutable());
+                    if (executablePath.startsWith(".") || executablePath.startsWith("..")) {
+                        executablePath = ctx.getWorkingDirectory().resolve(icueUnit.getExecutable());
+                    }
+                    spec = new IcueSpec(
+                        icueUnit.getName(), 
+                        icueUnit.getRevision(),
+                        executablePath, 
+                        icueUnit.getArgs(), 
+                        icueUnit.getParams(), 
+                        icueUnit.getLocation().toString()
+                    );
                     break;
                 default:
-                    recorder.recordError("Unsupported unit type: " + unit.getClass().getName());
+                    spec = null;
+            }
+
+            if (spec != null) {
+                recorder.recordInfo("Scheduled unit: " + spec.getName());
+                recorder.recordExec(spec);
+            } else {
+                recorder.recordError("Unsupported unit type: " + unit.getClass().getName());
             }
         }
     }
-
 
 }

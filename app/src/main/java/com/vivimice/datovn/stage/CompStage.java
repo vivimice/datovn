@@ -15,12 +15,14 @@
  */
 package com.vivimice.datovn.stage;
 
-import java.io.PrintStream;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -30,6 +32,7 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.slf4j.MDC.MDCCloseable;
 
+import com.vivimice.datovn.DatovnRuntimeException;
 import com.vivimice.datovn.action.ActionsStore;
 import com.vivimice.datovn.action.CompAction;
 import com.vivimice.datovn.action.DirectoryAccessAction;
@@ -55,6 +58,7 @@ public class CompStage {
 
     private final StageContext context;
     private final OffendingPathAccessChecker<String> pathAccessChecker = new OffendingPathAccessChecker<>();
+    private final Set<String> scheduledSpecs = Collections.newSetFromMap(new ConcurrentHashMap<>());
     
     // Variables that must be protected by <code>synchronized (this) {}</code> block
     // Number of remaining unfinished computations
@@ -105,8 +109,13 @@ public class CompStage {
     }
 
     private void schedule(CompExecSpec spec) {
-        assert spec != null;
-        logger.debug("Scheduling new exec spec: {}", spec.getKey());
+        boolean unscheduled = scheduledSpecs.add(spec.getName()); // implict null-check
+        if (!unscheduled) {
+            // If the spec is already scheduled, raise an error
+            throw new DatovnRuntimeException("Spec '" + spec.getName() + "' already scheduled in the same stage. Duplicate specs with same names in the same stage are not allowed.");
+        }
+
+        logger.debug("Scheduling new exec spec: {}", spec);
 
         UnitProfiler profiler = context.getProfiler().createUnitProfiler();
         profiler.onSchedule(spec);
@@ -117,12 +126,23 @@ public class CompStage {
             threadPool.execute(() -> {
                 try (MDCCloseable stageMdcc = MDC.putCloseable("stageName", context.getStageName())) {
                     logger.debug("Starting computation ...");
+                    UnitContext execContext = new UnitContextImpl(profiler);
                     try (
                         MDCCloseable unitMdcc = MDC.putCloseable("unitName", spec.getName());
                         ProfilerCloseable pc = profiler.wrapExecution();
                     ) {
                         // execute computation
-                        execute(spec, profiler);
+                        execute(spec, execContext);
+                    } catch (DatovnRuntimeException ex) {
+                        // log and handle expected runtime exceptions
+                        execContext.logMessage(MessageLevel.FATAL, ex.getMessage());
+                        if (ex.getCause() != null) {
+                            logger.debug("Datovn runtime exception", ex);
+                        }
+                    } catch (RuntimeException ex) {
+                        // log and handle unhandled runtime exception, as last resort
+                        execContext.logMessage(MessageLevel.FATAL, "internal error: " + ex.getMessage());
+                        logger.debug("Unhandled runtime exception during execution", ex);
                     } finally {
                         logger.debug("Computation finished");
                         synchronized (this) {
@@ -138,13 +158,13 @@ public class CompStage {
     /**
      * Execute the computation.
      */
-    private void execute(CompExecSpec spec, UnitProfiler profiler) {
+    private void execute(CompExecSpec spec, UnitContext execContext) {
         // Create computation unit from specification
         CompUnit unit = CompUnits.create(spec);
-        UnitContext execContext = new UnitContextImpl(profiler);
         ActionsStore actionsStore = context.getActionsStore();
         CompActionProcessor actionProcessor = new CompActionProcessor(context, execContext, pathAccessChecker, spec);
-        
+        UnitProfiler profiler = execContext.getProfiler();
+
         logger.debug("Reading previous action sketches");
         LoadedSketches prev;
         boolean upToDate;
@@ -152,6 +172,9 @@ public class CompStage {
             prev = actionsStore.loadActionSketches(spec);
             upToDate = (prev != null);
             pc.set("upToDate", upToDate);
+            if (prev != null) {
+                pc.set("updateTime", prev.updateTime());
+            }
         }
 
         if (upToDate) {
@@ -201,12 +224,7 @@ public class CompStage {
 
         @Override
         public void logMessage(MessageLevel level, String message) {
-            PrintStream stream = switch (level) {
-                case FATAL -> System.err;
-                case ERROR -> System.err;
-                default -> System.out;
-            };
-            stream.println(message);
+            context.logMessage(level, message);
         }
 
         @Override
@@ -328,7 +346,7 @@ public class CompStage {
         }
 
         private void checkPathAccess(String path, BiFunction<Path, String, PathAccessOperation<String>> checker, String description) {
-            Path p = stageContext.getStageWorkingDir().resolve(path).toAbsolutePath();
+            Path p = stageContext.getStageWorkingDir().resolve(path).normalize().toAbsolutePath();
 
             PathAccessOperation<String> offendingOperation;
             synchronized (pathAccessChecker) { // checker is backed by OffendingPathAccessChecker, which is not thread-safe

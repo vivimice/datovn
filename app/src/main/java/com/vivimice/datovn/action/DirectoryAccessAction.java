@@ -83,6 +83,12 @@ public final class DirectoryAccessAction extends CompAction {
     }
 
     @Override
+    public String toString() {
+        return "DirectoryAccessAction [path=" + path + ", pattern=" + pattern + ", stat=" + stat + ", mode=" + mode
+                + "]";
+    }
+
+    @Override
     public boolean isUpToDate(ActionPathMappingContext context) {
         Path p = context.resolveFromStore(path); // relative paths (if any) recorded in CompActions are always based on store directory
         String newStat = calculateStat(p, pattern != null ? pattern : DEFAULT_PATTERN);

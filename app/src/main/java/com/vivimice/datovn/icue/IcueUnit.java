@@ -19,7 +19,6 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.lang.ProcessBuilder.Redirect;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -83,29 +82,29 @@ public final class IcueUnit extends AbstractCompUnit<IcueSpec> {
         }
         logger.debug("ICUE environment variables: {}", envs);
 
-        // Record read file action for ICUE executable path, since we are going to execute it
-        String executablePath = ctx.getWorkingDirectory().resolve(spec.getExecutable()).toString();
-        recorder.recordReadFile(executablePath);
-        
         // Prepare command for ICUE executable
         List<String> command = new ArrayList<>();
-        command.add(executablePath);
+        // Note: we don't record file read access on executable itself because
+        //       we might not able to find the real path of the executable in some cases.
+        //       For example, when the executable resides in some directory listed in PATH 
+        //       environment variable, we don't want to reimplement executable lookup routine
+        //       here.
+        command.add(spec.getExecutable().toString());
         command.addAll(spec.getArgs());
         logger.debug("ICUE process command: {}", command);
-
 
         // Execute ICUE executable
         Process p;
         try {
             ProcessBuilder pb = new ProcessBuilder(command);
             pb.directory(ctx.getWorkingDirectory().toFile());
-            pb.redirectInput(Redirect.DISCARD);
             pb.environment().putAll(envs);
 
             logger.info("Starting ICUE process ...");
             p = pb.start();
+            p.getOutputStream().close(); // Close ICUE's stdin to prevent writing to it
         } catch (IOException ex) {
-            logger.debug("Failed to execute ICUE executable: {}", spec.getKey(), ex);
+            logger.debug("Failed to execute ICUE executable", ex);
             recorder.recordFatalError("Failed to execute ICUE executable: " + ex.getMessage());
             return;
         }
@@ -113,7 +112,7 @@ public final class IcueUnit extends AbstractCompUnit<IcueSpec> {
         // Redirect messages from ICUE executable during process execution, stdout as INFO, stderr as ERROR
         BiFunction<MessageLevel, InputStream, Runnable> messageRedirectorCreator = (level, inputStream) -> () -> {
             int numOfMessages = 0;
-            logger.debug("Dumping ICUE {} messages ...", level);
+            logger.trace("Dumping ICUE {} messages ...", level);
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
                 String line;
                 while ((line = reader.readLine()) != null) {
@@ -123,9 +122,9 @@ public final class IcueUnit extends AbstractCompUnit<IcueSpec> {
                     numOfMessages++;
                 }
             } catch (IOException ex) {
-                logger.error("Failed to dump ICUE {} message: {}", level, spec.getKey(), ex);
+                logger.error("Failed to dump ICUE {} message.", level, ex);
             } finally {
-                logger.debug("Dumped {} ICUE {} messages", numOfMessages, level);
+                logger.trace("Dumped {} ICUE {} messages", numOfMessages, level);
             }
         };
         Future<?> stdoutRedirector = outputStreamDumpers.submit(
@@ -137,11 +136,11 @@ public final class IcueUnit extends AbstractCompUnit<IcueSpec> {
             stdoutRedirector.get();
             stderrRedirector.get();
         } catch (InterruptedException ex) {
-            logger.error("Execution interrupted: {}", spec.getKey(), ex);
+            logger.error("Execution interrupted", ex);
             Thread.currentThread().interrupt();
             return;
         } catch (ExecutionException ex) {
-            logger.error("Execution i/o error: {}", spec.getKey(), ex);
+            logger.error("Execution i/o error", ex);
             throw new DatovnRuntimeException("internal error while redirecting ICUE output streams", ex);
         }
 
@@ -152,7 +151,7 @@ public final class IcueUnit extends AbstractCompUnit<IcueSpec> {
             recorder.recordExit(exitCode);
             logger.debug("ICUE process exited with code: {}", exitCode);
         } catch (InterruptedException ex) {
-            logger.error("ICUE external process execution interrupted: {}", spec.getKey(), ex);
+            logger.error("ICUE external process execution interrupted", ex);
             Thread.currentThread().interrupt();
             return;
         }

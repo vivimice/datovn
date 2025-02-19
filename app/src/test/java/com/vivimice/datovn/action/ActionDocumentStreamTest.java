@@ -44,6 +44,16 @@ public class ActionDocumentStreamTest {
     }
 
     @Test
+    public void testReadEmptyInputs() throws IOException {
+        // Arrange
+        when(reader.readLine()).thenReturn((String) null);
+        // Act
+        ActionDocumentIterator<CompAction.Sketch<?>> iterator = ActionDocumentStream.readSketches(reader);
+        // Assert
+        assertNull(iterator.read());
+    }
+
+    @Test
     public void testReadSketches() throws IOException {
         // Arrange
         when(reader.readLine()).thenReturn(

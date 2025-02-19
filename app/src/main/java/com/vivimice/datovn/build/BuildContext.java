@@ -18,6 +18,7 @@ package com.vivimice.datovn.build;
 import java.nio.file.Path;
 import java.util.concurrent.ExecutorService;
 
+import com.vivimice.datovn.action.MessageLevel;
 import com.vivimice.datovn.profiler.BuildProfiler;
 
 public interface BuildContext {
@@ -32,5 +33,10 @@ public interface BuildContext {
      * Get profiler for build process.
      */
     BuildProfiler getProfiler();
+
+    /**
+     * Log a message with specified level.
+     */
+    void logMessage(MessageLevel level, String message);
 
 }

@@ -78,6 +78,11 @@ public final class FileAccessAction extends CompAction {
     }
 
     @Override
+    public String toString() {
+        return "FileAccessAction [path=" + path + ", stat=" + stat + ", mode=" + mode + "]";
+    }
+
+    @Override
     public CompAction.Sketch<?> toSketch(ActionPathMappingContext context) {
         Sketch sketch = new Sketch();
         sketch.setMode(mode);
@@ -86,7 +91,6 @@ public final class FileAccessAction extends CompAction {
     }
 
     private static String calculateStat(Path p) {
-        assert p.isAbsolute();
         if (!Files.exists(p)) {
             return "stat:not-exists";
         }
@@ -125,7 +129,7 @@ public final class FileAccessAction extends CompAction {
         @Override
         public FileAccessAction toAction(ActionPathMappingContext ctx) {
             Path p = ctx.resolveFromStage(path);
-            String stat = calculateStat(ctx.resolveFromStage(path));
+            String stat = calculateStat(p);
             String relPath = ctx.relativizeToStore(p);
             return new FileAccessAction(relPath, mode, stat);
         }

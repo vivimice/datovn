@@ -19,6 +19,7 @@ import java.nio.file.Path;
 import java.util.concurrent.Executor;
 
 import com.vivimice.datovn.action.ActionsStore;
+import com.vivimice.datovn.action.MessageLevel;
 import com.vivimice.datovn.profiler.StageProfiler;
 
 /**
@@ -54,5 +55,10 @@ public interface StageContext {
      * Get the profiler for this stage.
      */
     StageProfiler getProfiler();
+
+    /**
+     * Log a message with specified level.
+     */
+    void logMessage(MessageLevel level, String message);
 
 }
