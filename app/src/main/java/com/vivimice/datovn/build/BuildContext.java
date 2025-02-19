@@ -28,6 +28,9 @@ public interface BuildContext {
 
     ExecutorService getCompUnitThreadPool();
 
+    /**
+     * Get profiler for build process.
+     */
     BuildProfiler getProfiler();
 
 }

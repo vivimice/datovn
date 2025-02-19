@@ -74,8 +74,11 @@ public class ActionsStore {
             actions.add(sketch.toAction(convertContext));
         }
 
+        long updateTime = System.currentTimeMillis();
+
         Map<String, Object> data = Map.of(
             "version", CURRENT_FILE_VERSION,
+            "updateTime", updateTime,
             "actions", actions
         );
 
@@ -101,7 +104,7 @@ public class ActionsStore {
      * @param spec
      * @return the action sketches collected during the execution of the computation unit. null if no such sketches exist.
      */
-    public List<CompAction.Sketch<?>> loadActionSketches(CompExecSpec spec) {
+    public LoadedSketches loadActionSketches(CompExecSpec spec) {
         ActionPathMappingContext mappingContext = new ActionPathMappingContext(stageDirectory, storeDirectory);
 
         Path actionsFile = getActionsFile(spec);
@@ -122,8 +125,11 @@ public class ActionsStore {
             throw new DatovnRuntimeException("action file version is not compatible with the current version '" + CURRENT_FILE_VERSION + "'. File: " + actionsFile);
         }
 
+        
+        long updateTime;
         List<CompAction> actions;
         try {
+            updateTime = actionsMapper.convertValue(data.get("updateTime"), Long.class);
             actions = actionsMapper.convertValue(data.get("actions"), new TypeReference<List<CompAction>>() {});
         } catch (IllegalArgumentException ex) {
             throw new DatovnRuntimeException("malformed action data in file: " + actionsFile, ex);
@@ -144,7 +150,7 @@ public class ActionsStore {
             sketches.add(action.toSketch(mappingContext));
         }
         
-        return sketches;
+        return new LoadedSketches(sketches, updateTime);
     }
 
 }

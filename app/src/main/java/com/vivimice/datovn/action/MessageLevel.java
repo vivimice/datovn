@@ -13,31 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.vivimice.datovn.unit;
+package com.vivimice.datovn.action;
 
-import java.nio.file.Path;
-
-import com.vivimice.datovn.action.MessageLevel;
-import com.vivimice.datovn.profiler.UnitProfiler;
-
-/**
- * Execution context of a CompUnit.
- */
-public interface UnitContext {
-
-    /**
-     * Get the working directory of current CompUnit's execution.
-     */
-    Path getWorkingDirectory();
-
-    /**
-     * Log a message with specified level.
-     */
-    void logMessage(MessageLevel level, String message);
-
-    /**
-     * Get the profiler for current CompUnit.
-     */
-    UnitProfiler getProfiler();
-
+public enum MessageLevel {
+    INFO, WARN, ERROR, FATAL;
 }

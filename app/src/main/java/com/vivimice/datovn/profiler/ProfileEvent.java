@@ -13,31 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.vivimice.datovn.unit;
+package com.vivimice.datovn.profiler;
 
-import java.nio.file.Path;
+import java.util.Map;
 
-import com.vivimice.datovn.action.MessageLevel;
-import com.vivimice.datovn.profiler.UnitProfiler;
+import com.fasterxml.jackson.annotation.JsonAnyGetter;
+import com.fasterxml.jackson.annotation.JsonAnySetter;
 
-/**
- * Execution context of a CompUnit.
- */
-public interface UnitContext {
-
-    /**
-     * Get the working directory of current CompUnit's execution.
-     */
-    Path getWorkingDirectory();
-
-    /**
-     * Log a message with specified level.
-     */
-    void logMessage(MessageLevel level, String message);
-
-    /**
-     * Get the profiler for current CompUnit.
-     */
-    UnitProfiler getProfiler();
-
-}
+public record ProfileEvent(
+    long clock,
+    String name,
+    
+    @JsonAnySetter
+    @JsonAnyGetter
+    Map<String, Object> data
+) {}

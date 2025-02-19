@@ -24,6 +24,7 @@ import org.slf4j.LoggerFactory;
 
 import com.vivimice.datovn.build.BuildContext;
 import com.vivimice.datovn.build.CompBuild;
+import com.vivimice.datovn.profiler.BuildProfiler;
 
 public class DatovnApp {
 
@@ -67,6 +68,7 @@ public class DatovnApp {
 
         private final Path actionStoreDirectory = buildDirectory.resolve(".datovn/actions");
         private final ExecutorService compUnitThreadPool = Executors.newWorkStealingPool(parallelism);
+        private final BuildProfiler profiler = new BuildProfiler((event) -> {});
 
         @Override
         public Path getBuildDirectory() {
@@ -81,6 +83,11 @@ public class DatovnApp {
         @Override
         public ExecutorService getCompUnitThreadPool() {
             return compUnitThreadPool;
+        }
+
+        @Override
+        public BuildProfiler getProfiler() {
+            return profiler;
         }
 
     }

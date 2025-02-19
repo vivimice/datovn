@@ -30,14 +30,17 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.slf4j.MDC.MDCCloseable;
 
-import com.vivimice.datovn.action.CompAction;
 import com.vivimice.datovn.action.ActionsStore;
+import com.vivimice.datovn.action.CompAction;
 import com.vivimice.datovn.action.DirectoryAccessAction;
 import com.vivimice.datovn.action.ExecAction;
 import com.vivimice.datovn.action.ExitAction;
 import com.vivimice.datovn.action.FileAccessAction;
+import com.vivimice.datovn.action.LoadedSketches;
+import com.vivimice.datovn.action.MessageLevel;
 import com.vivimice.datovn.action.MessageOutputAction;
-import com.vivimice.datovn.error.MessageLevel;
+import com.vivimice.datovn.profiler.ProfilerCloseable;
+import com.vivimice.datovn.profiler.UnitProfiler;
 import com.vivimice.datovn.spec.CompExecSpec;
 import com.vivimice.datovn.unit.CompActionRecorder;
 import com.vivimice.datovn.unit.CompUnit;
@@ -72,9 +75,14 @@ public class CompStage {
      * @throws NullPointerException if initialSpec is <code>null</code>
      */
     public void start(CompExecSpec initialSpec) {
-        try (MDCCloseable stageMdcc = MDC.putCloseable("stage", context.getStageName())) {
-            logger.info("Stage started");
+        try (
+            MDCCloseable stageMdcc = MDC.putCloseable("stage", context.getStageName());
+            ProfilerCloseable pc = context.getProfiler().wrapStageRun(context.getStageName());
+        ) {
             assert initialSpec != null;
+
+            logger.info("Stage started");
+            
             synchronized (this) {
                 // Check if already started
                 assert remainComps == 0;
@@ -100,15 +108,21 @@ public class CompStage {
         assert spec != null;
         logger.debug("Scheduling new exec spec: {}", spec.getKey());
 
+        UnitProfiler profiler = context.getProfiler().createUnitProfiler();
+        profiler.onSchedule(spec);
+        
         Executor threadPool = context.getCompUnitThreadPool();
         synchronized (this) {
             remainComps++;
             threadPool.execute(() -> {
                 try (MDCCloseable stageMdcc = MDC.putCloseable("stageName", context.getStageName())) {
                     logger.debug("Starting computation ...");
-                    try (MDCCloseable unitMdcc = MDC.putCloseable("unitName", spec.getName())) {
+                    try (
+                        MDCCloseable unitMdcc = MDC.putCloseable("unitName", spec.getName());
+                        ProfilerCloseable pc = profiler.wrapExecution();
+                    ) {
                         // execute computation
-                        execute(spec);
+                        execute(spec, profiler);
                     } finally {
                         logger.debug("Computation finished");
                         synchronized (this) {
@@ -123,30 +137,32 @@ public class CompStage {
 
     /**
      * Execute the computation.
-     * 
-     * @param spec
      */
-    private void execute(CompExecSpec spec) {
+    private void execute(CompExecSpec spec, UnitProfiler profiler) {
         // Create computation unit from specification
         CompUnit unit = CompUnits.create(spec);
-        UnitContext execContext = new ExecContextImpl(context);
+        UnitContext execContext = new UnitContextImpl(profiler);
         ActionsStore actionsStore = context.getActionsStore();
         CompActionProcessor actionProcessor = new CompActionProcessor(context, execContext, pathAccessChecker, spec);
         
-        boolean shouldReplay;
         logger.debug("Reading previous action sketches");
-        List<CompAction.Sketch<?>> prevSketches = actionsStore.loadActionSketches(spec);
-        if (prevSketches == null) {
-            shouldReplay = false;
-            // Execute CompUnit and collect action sketches reported during the computation.
-            logger.debug("No action sketches recorded or previous sketches are not valid. Execute computation from scratch.");
-            CompActionRecorder actionRecorder = new CompActionRecorder(actionProcessor);
-            unit.execute(execContext, actionRecorder);
+        LoadedSketches prev;
+        boolean upToDate;
+        try (ProfilerCloseable pc = profiler.wrapLoadSketches()) { 
+            prev = actionsStore.loadActionSketches(spec);
+            upToDate = (prev != null);
+            pc.set("upToDate", upToDate);
+        }
+
+        if (upToDate) {
+            logger.debug("Computation is up-to-date.");
+            prev.sketches().forEach(actionProcessor::accept);
         } else {
-            shouldReplay = true;
-            // Replay previous actions
-            logger.debug("Replay previous actions.");
-            prevSketches.forEach(actionProcessor::accept);
+            // Execute CompUnit and collect action sketches reported during the computation.
+            logger.debug("Computation is out-of-date. Execute computation from scratch.");
+            try (ProfilerCloseable pc = profiler.wrapUnitRun()) {
+                unit.execute(execContext, new CompActionRecorder(actionProcessor));
+            }
         }
 
         // Report addition errors during action recording
@@ -154,10 +170,13 @@ public class CompStage {
             execContext.logMessage(MessageLevel.ERROR, error);
         }
 
-        // Write sketches to store, if not replaying.
-        if (!shouldReplay) {
+        // Write sketches to store, if out-of-date.
+        if (!upToDate) {
             logger.debug("Writing action sketches to store.");
-            actionsStore.writeActionSketches(spec, actionProcessor.recordedSketches);
+            try (ProfilerCloseable pc = profiler.wrapWriteSketches()) {
+                actionsStore.writeActionSketches(spec, actionProcessor.recordedSketches);
+                pc.set("count", actionProcessor.recordedSketches.size());
+            }
         }
 
         // Schedule subsequent computations
@@ -167,17 +186,17 @@ public class CompStage {
         }
     }
 
-    private static class ExecContextImpl implements UnitContext {
+    private class UnitContextImpl implements UnitContext {
 
-        private final StageContext stageContext;
+        private final UnitProfiler profiler;
 
-        ExecContextImpl(StageContext stageContext) {
-            this.stageContext = stageContext;
+        UnitContextImpl(UnitProfiler profiler) {
+            this.profiler = profiler;
         }
 
         @Override
         public Path getWorkingDirectory() {
-            return stageContext.getStageWorkingDir();
+            return context.getStageWorkingDir();
         }
 
         @Override
@@ -188,6 +207,11 @@ public class CompStage {
                 default -> System.out;
             };
             stream.println(message);
+        }
+
+        @Override
+        public UnitProfiler getProfiler() {
+            return profiler;
         }
 
     }
@@ -250,10 +274,13 @@ public class CompStage {
                     break;
 
                 case MessageOutputAction.Sketch messageSketch:
+                    MessageLevel level = messageSketch.getLevel();
+                    String message = messageSketch.getMessage();
                     // we record there was a fatal error
-                    hasFatalError |= (messageSketch.getLevel() == MessageLevel.FATAL);
+                    hasFatalError |= (level == MessageLevel.FATAL);
                     // we direct all messages to execution context
-                    execContext.logMessage(messageSketch.getLevel(), messageSketch.getMessage());
+                    execContext.logMessage(level, message);
+                    execContext.getProfiler().onMessage(level, message);
                     break;
 
                 default:

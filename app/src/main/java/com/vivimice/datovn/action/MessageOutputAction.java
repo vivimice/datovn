@@ -17,7 +17,6 @@ package com.vivimice.datovn.action;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.vivimice.datovn.error.MessageLevel;
 
 public final class MessageOutputAction extends CompAction {
 

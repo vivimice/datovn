@@ -19,6 +19,7 @@ import java.nio.file.Path;
 import java.util.concurrent.Executor;
 
 import com.vivimice.datovn.action.ActionsStore;
+import com.vivimice.datovn.profiler.StageProfiler;
 
 /**
  * The context object that provides information and services for a specific computation stage.
@@ -48,5 +49,10 @@ public interface StageContext {
      * Get the working directory of the current stage.
      */
     Path getStageWorkingDir();
+
+    /**
+     * Get the profiler for this stage.
+     */
+    StageProfiler getProfiler();
 
 }

@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright 2025 vivimice@gmail.com
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,31 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.vivimice.datovn.unit;
+package com.vivimice.datovn.profiler;
 
-import java.nio.file.Path;
+import java.util.Map;
 
-import com.vivimice.datovn.action.MessageLevel;
-import com.vivimice.datovn.profiler.UnitProfiler;
+public class StageProfiler extends AbstractProfiler {
 
-/**
- * Execution context of a CompUnit.
- */
-public interface UnitContext {
+    StageProfiler(ProfilerContext context) {
+        super(context);
+        setCommonEventData("stageId", context.nextId());
+    }
 
-    /**
-     * Get the working directory of current CompUnit's execution.
-     */
-    Path getWorkingDirectory();
+    public UnitProfiler createUnitProfiler() {
+        return new UnitProfiler(context);
+    }
 
-    /**
-     * Log a message with specified level.
-     */
-    void logMessage(MessageLevel level, String message);
-
-    /**
-     * Get the profiler for current CompUnit.
-     */
-    UnitProfiler getProfiler();
+    public ProfilerCloseable wrapStageRun(String stageName) {
+        return wrapEvent("stageRun", Map.of("name", stageName));
+    }
 
 }

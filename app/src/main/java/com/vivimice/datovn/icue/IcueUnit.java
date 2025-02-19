@@ -41,7 +41,7 @@ import com.vivimice.datovn.action.ActionDocumentIterator;
 import com.vivimice.datovn.action.ActionDocumentStream;
 import com.vivimice.datovn.action.CompAction;
 import com.vivimice.datovn.action.MalformedActionDocumentException;
-import com.vivimice.datovn.error.MessageLevel;
+import com.vivimice.datovn.action.MessageLevel;
 import com.vivimice.datovn.unit.AbstractCompUnit;
 import com.vivimice.datovn.unit.CompActionRecorder;
 import com.vivimice.datovn.unit.CompUnit;

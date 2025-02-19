@@ -22,6 +22,9 @@ import java.util.concurrent.Executor;
 
 import com.vivimice.datovn.DatovnRuntimeException;
 import com.vivimice.datovn.action.ActionsStore;
+import com.vivimice.datovn.profiler.ProfilerCloseable;
+import com.vivimice.datovn.profiler.StageProfiler;
+import com.vivimice.datovn.spec.StageBootstrapSpec;
 import com.vivimice.datovn.stage.CompStage;
 import com.vivimice.datovn.stage.StageContext;
 
@@ -40,7 +43,7 @@ public class CompBuild {
             throw new DatovnRuntimeException("build dir is not a directory: " + buildDirectory);
         }
 
-        try {
+        try (ProfilerCloseable pc = context.getProfiler().wrapBuild()) {
             // every directory under the build directory corresponding to a stage
             Files.list(buildDirectory).forEach(p -> {
                 if (Files.isDirectory(p)) {
@@ -54,7 +57,9 @@ public class CompBuild {
 
     private void runStage(Path stageDir) {
         StageContext stageContext = new StageContextImpl(stageDir);
-        new CompStage(stageContext);
+        CompStage stage = new CompStage(stageContext);
+        String location = context.getBuildDirectory().relativize(stageDir).toString();
+        stage.start(new StageBootstrapSpec(stageContext.getStageName(), location));
     }
 
     private class StageContextImpl implements StageContext {
@@ -85,6 +90,11 @@ public class CompBuild {
         @Override
         public Path getStageWorkingDir() {
             return stageDirectory;
+        }
+
+        @Override
+        public StageProfiler getProfiler() {
+            return context.getProfiler().createStageProfiler();
         }
 
     }
