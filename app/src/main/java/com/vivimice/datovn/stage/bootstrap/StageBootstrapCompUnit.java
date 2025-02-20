@@ -23,10 +23,10 @@ import java.util.List;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-import com.vivimice.datovn.icue.IcueSpec;
 import com.vivimice.datovn.spec.CompExecSpec;
 import com.vivimice.datovn.unit.AbstractCompUnit;
 import com.vivimice.datovn.unit.CompActionRecorder;
+import com.vivimice.datovn.unit.CompUnits;
 import com.vivimice.datovn.unit.UnitContext;
 
 public class StageBootstrapCompUnit extends AbstractCompUnit<StageBootstrapSpec> {
@@ -64,36 +64,15 @@ public class StageBootstrapCompUnit extends AbstractCompUnit<StageBootstrapSpec>
         }
 
         List<UnitDescriptor> units = descriptor.getUnits();
-        if (units == null) {
-            units = List.of();
-        }
-
-        for (UnitDescriptor unit : descriptor.getUnits()) {
-            CompExecSpec spec;
-            switch (unit) {
-                case IcueUnitDescriptor icueUnit:
-                    Path executablePath = Path.of(icueUnit.getExecutable());
-                    if (executablePath.startsWith(".") || executablePath.startsWith("..")) {
-                        executablePath = ctx.getWorkingDirectory().resolve(icueUnit.getExecutable());
-                    }
-                    spec = new IcueSpec(
-                        icueUnit.getName(), 
-                        icueUnit.getRevision(),
-                        executablePath, 
-                        icueUnit.getArgs(), 
-                        icueUnit.getParams(), 
-                        icueUnit.getLocation().toString()
-                    );
-                    break;
-                default:
-                    spec = null;
-            }
-
-            if (spec != null) {
-                recorder.recordInfo("Scheduled unit: " + spec.getName());
-                recorder.recordExec(spec);
-            } else {
-                recorder.recordError("Unsupported unit type: " + unit.getClass().getName());
+        if (units != null) {
+            for (UnitDescriptor unit : descriptor.getUnits()) {
+                CompExecSpec spec = CompUnits.createSpec(unit);
+                if (spec != null) {
+                    recorder.recordInfo("Scheduled unit: " + spec.getName());
+                    recorder.recordExec(spec);
+                } else {
+                    recorder.recordError("Unsupported unit type: " + unit.getClass().getName());
+                }
             }
         }
     }

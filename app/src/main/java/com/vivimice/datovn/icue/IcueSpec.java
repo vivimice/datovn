@@ -31,7 +31,7 @@ public final class IcueSpec implements CompExecSpec {
      * 
      * Won't be null.
      */
-    private final Path executable;
+    private final String executable;
 
     /**
      * An additional revision string, used to alter opaque identifier manually in spec.
@@ -66,7 +66,7 @@ public final class IcueSpec implements CompExecSpec {
      */
     private final String opaqueIdentifier;
 
-    public IcueSpec(String name, String revision, Path executable, List<String> args, List<String> params, String location) {
+    public IcueSpec(String name, String revision, String executable, List<String> args, List<String> params, String location) {
         if (executable == null || args == null || params == null || location == null) {
             throw new NullPointerException();
         }
@@ -113,7 +113,7 @@ public final class IcueSpec implements CompExecSpec {
         return location;
     }
 
-    public Path getExecutable() {
+    public String getExecutable() {
         return executable;
     }
 

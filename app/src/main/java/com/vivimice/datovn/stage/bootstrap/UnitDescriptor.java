@@ -29,6 +29,7 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.fasterxml.jackson.databind.node.NullNode;
 import com.vivimice.datovn.spec.CompExecSpec;
+import com.vivimice.datovn.unit.CompUnits;
 
 @JsonDeserialize(using = UnitDescriptor.JsonDeserializer.class)
 public class UnitDescriptor {
@@ -71,26 +72,22 @@ public class UnitDescriptor {
 
         @Override
         public UnitDescriptor deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JacksonException {
-            UnitDescriptor descriptor;
-            
             JsonLocation location = p.currentLocation();
             JsonNode node = p.getCodec().readTree(p);
             String type;
 
             JsonNode typeNode = node.get("type");
             if (typeNode == null || typeNode instanceof NullNode) {
-                type = "icue";
+                type = null;
             } else {
                 type = typeNode.asText();
             }
 
-            switch (type) {
-                case "icue":
-                    descriptor = p.getCodec().treeToValue(node, IcueUnitDescriptor.class);
-                    break;
-                default:
-                    throw new JsonMappingException(p, "Unknown unit type: " + type);
+            Class<? extends UnitDescriptor> descriptorClass = CompUnits.lookupDescriptorClass(type);
+            if (descriptorClass == null) {
+                throw new JsonMappingException(p, "Unknown unit type: " + type);
             }
+            UnitDescriptor descriptor = p.getCodec().treeToValue(node, descriptorClass);
 
             // set name
             JsonNode nameNode = node.get("name");

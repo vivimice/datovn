@@ -82,14 +82,21 @@ public final class IcueUnit extends AbstractCompUnit<IcueSpec> {
         }
         logger.debug("ICUE environment variables: {}", envs);
 
-        // Prepare command for ICUE executable
-        List<String> command = new ArrayList<>();
+        // We process executable path if it's relative to working directory
+        Path executablePath = Path.of(spec.getExecutable());
+        if (executablePath.startsWith(".") || executablePath.startsWith("..")) {
+            executablePath = ctx.getWorkingDirectory().resolve(executablePath);
+        }
+
         // Note: we don't record file read access on executable itself because
         //       we might not able to find the real path of the executable in some cases.
         //       For example, when the executable resides in some directory listed in PATH 
         //       environment variable, we don't want to reimplement executable lookup routine
         //       here.
-        command.add(spec.getExecutable().toString());
+
+        // Prepare command for ICUE executable
+        List<String> command = new ArrayList<>();
+        command.add(executablePath.toString());
         command.addAll(spec.getArgs());
         logger.debug("ICUE process command: {}", command);
 

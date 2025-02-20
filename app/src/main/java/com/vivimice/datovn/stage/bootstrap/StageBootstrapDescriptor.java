@@ -24,6 +24,13 @@ public class StageBootstrapDescriptor {
 
     private List<UnitDescriptor> units;
 
+    /**
+     * "units" section of stage.yml. It contains the list of unit descriptors.
+     * 
+     * This section is optional. If not specified, means no units.
+     * 
+     * @return the list of unit descriptors. Might be null.
+     */
     public List<UnitDescriptor> getUnits() {
         return units;
     }

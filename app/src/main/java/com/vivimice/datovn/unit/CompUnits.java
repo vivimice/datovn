@@ -19,8 +19,10 @@ import com.vivimice.datovn.DatovnRuntimeException;
 import com.vivimice.datovn.icue.IcueSpec;
 import com.vivimice.datovn.icue.IcueUnit;
 import com.vivimice.datovn.spec.CompExecSpec;
+import com.vivimice.datovn.stage.bootstrap.IcueUnitDescriptor;
 import com.vivimice.datovn.stage.bootstrap.StageBootstrapCompUnit;
 import com.vivimice.datovn.stage.bootstrap.StageBootstrapSpec;
+import com.vivimice.datovn.stage.bootstrap.UnitDescriptor;
 
 public class CompUnits {
 
@@ -32,10 +34,45 @@ public class CompUnits {
      */
     public static CompUnit create(CompExecSpec spec) {
         return switch (spec) {
-            case null -> throw new NullPointerException("specification can't be null");
             case IcueSpec icueSpec -> new IcueUnit(icueSpec);
             case StageBootstrapSpec stageBootstrapSpec -> new StageBootstrapCompUnit(stageBootstrapSpec);
+            case null -> throw new NullPointerException("specification can't be null");
             default -> throw new DatovnRuntimeException("Unknown computation specification: " + spec.getName());
+        };
+    }
+
+    /**
+     * Factory method to determine the appropriate descriptor class based on the given type.
+     * 
+     * @param type "type" field in stage.yml's unit section.
+     * @return The descriptor class. Null if the type is unknown.
+     */
+    public static Class<? extends UnitDescriptor> lookupDescriptorClass(String type) throws IllegalArgumentException {
+        return switch (type) {
+            case "icue" -> IcueUnitDescriptor.class;
+            case null -> IcueUnitDescriptor.class; // default as ICUE units
+            default -> null;
+        };
+    }
+
+    /**
+     * Create a computation execution specification from the given descriptor.
+     * 
+     * @param descriptor The descriptor of the computation unit defined by stage.yml. Can't be null.
+     * @return The computation execution specification. Null if the descriptor type is unknown.
+     */
+    public static CompExecSpec createSpec(UnitDescriptor descriptor) {
+        assert descriptor != null;
+        return switch (descriptor) {
+            case IcueUnitDescriptor unit -> new IcueSpec(
+                unit.getName(), 
+                unit.getRevision(),
+                unit.getExecutable(),
+                unit.getArgs(), 
+                unit.getParams(), 
+                unit.getLocation().toString()
+            );
+            default -> null;
         };
     }
 
