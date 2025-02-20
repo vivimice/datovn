@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
 
 import static com.vivimice.datovn.action.MessageLevel.*;
 
-public class BasicTest {
+public class SmokeTest {
 
     @Test
     public void emptyTest() {
@@ -48,6 +48,8 @@ public class BasicTest {
         new DatovnTester("duplicate-names").run()
             .assertFailure()
             .assertWithErrors(1)
+            .assertHasMessage(INFO, "Hello, World!")
+            .assertHasMessage(INFO, "Hello, World! Again!")
             .assertHasMessage(FATAL, "Spec 'hello-world' already scheduled in the same stage. Duplicate specs with same names in the same stage are not allowed.");
     }
 

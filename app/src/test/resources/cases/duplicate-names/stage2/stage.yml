@@ -1,0 +1,4 @@
+units:
+- name: hello-world
+  type: icue
+  command: jshell hello-world2.jsh
