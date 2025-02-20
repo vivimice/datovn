@@ -21,11 +21,13 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
@@ -49,65 +51,80 @@ public class DatovnTester {
 
     private static final Logger logger = LoggerFactory.getLogger(DatovnTester.class);
 
-    private final Path caseDirectory;
-    private final TestBuildContextImpl buildContext;
+    private final Path workingDirectory;
+    private int passCounter = 0;
     
-    private boolean preserveActions = false;
-    private DatovnRuntimeException executionException;
-
-    public DatovnTester(String caseName) {
-        caseDirectory = Path.of("src/test/resources/cases", caseName);
-        buildContext = new TestBuildContextImpl();
+    public DatovnTester(String caseName) throws IOException {
+        Path caseDirectory = Path.of("src/test/resources/cases", caseName);
+        workingDirectory = caseDirectory.resolve("working");
+        removePathRecursively(workingDirectory);
+        copyPathRecursively(caseDirectory.resolve("src"), workingDirectory);
     }
 
-    public DatovnTester preserveActions() {
-        preserveActions = true;
-        return this;
-    }
-
-    private static void removePathRecursively(Path p) {
-        if (Files.exists(p, LinkOption.NOFOLLOW_LINKS)) {
-            try {
-                Files.walkFileTree(p, new SimpleFileVisitor<Path>() {
-                    @Override
-                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                        Files.delete(file);
-                        return FileVisitResult.CONTINUE;
+    private static void copyPathRecursively(Path source, Path target) throws IOException {
+        Files.walkFileTree(source, new SimpleFileVisitor<Path>() {
+            @Override
+            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                Path targetDir = target.resolve(source.relativize(dir));
+                try {
+                    Files.copy(dir, targetDir, StandardCopyOption.REPLACE_EXISTING);
+                } catch (FileAlreadyExistsException ex) {
+                    if (!Files.isDirectory(targetDir)) {
+                        throw ex;
                     }
-    
-                    @Override
-                    public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-                        if (exc != null) {
-                            throw exc;
-                        }
-                        Files.delete(dir);
-                        return FileVisitResult.CONTINUE;
-                    }
-                });
-            } catch (IOException ex) {
-                throw new RuntimeException("Failed remove path: " + p, ex);
+                }
+                return FileVisitResult.CONTINUE;
             }
+
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                Files.copy(file, target.resolve(source.relativize(file)), StandardCopyOption.REPLACE_EXISTING);
+                return FileVisitResult.CONTINUE;
+            }
+        });
+    }
+
+    private static void removePathRecursively(Path p) throws IOException {
+        if (Files.exists(p, LinkOption.NOFOLLOW_LINKS)) {
+            Files.walkFileTree(p, new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                    Files.delete(file);
+                    return FileVisitResult.CONTINUE;
+                }
+
+                @Override
+                public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                    if (exc != null) {
+                        throw exc;
+                    }
+                    Files.delete(dir);
+                    return FileVisitResult.CONTINUE;
+                }
+            });
         }
     }
 
     public ResultChecker run() {
-        logger.info("DatovnTester build start.");
+        int currentPass = ++passCounter;
+        logger.info("DatovnTester build start (Pass #{})", currentPass);
 
-        if (!preserveActions) {
-            removePathRecursively(buildContext.actionStoreDirectory);
-        }
-
+        ResultChecker checker = new ResultChecker();
         try {
-            new CompBuild(buildContext).run();
-            executionException = null;
+            new CompBuild(checker.buildContext).run();
+            checker.executionException = null;
         } catch (DatovnRuntimeException e) {
-            executionException = e;
+            checker.executionException = e;
         }
 
-        return new ResultChecker();
+        logger.info("DatovnTester build stopped (Pass #{})", currentPass);
+        return checker;
     }
 
     public class ResultChecker {
+
+        private DatovnRuntimeException executionException;
+        private final TestBuildContextImpl buildContext = new TestBuildContextImpl();
 
         public ResultChecker assertSuccess() {
             assertNull(executionException, "DatovnRuntimeException was thrown during build");
@@ -122,6 +139,13 @@ public class DatovnTester {
 
         public ResultChecker assertWithErrors(int expectedErrors) {
             assertEquals(expectedErrors, buildContext.errorCounter.get());
+            return this;
+        }
+
+        public ResultChecker assertHasMessage(MessageLevel level, Predicate<String> expectedFilter) {
+            boolean found = buildContext.messages.computeIfAbsent(level, lv -> new ArrayList<>())
+                .stream().anyMatch(expectedFilter);
+            assertTrue(found, "expected message not found");
             return this;
         }
 
@@ -168,7 +192,7 @@ public class DatovnTester {
 
     private class TestBuildContextImpl implements BuildContext {
 
-        private final Path actionStoreDirectory = caseDirectory.resolve(".datovn/actions");
+        private final Path actionStoreDirectory = workingDirectory.resolve(".datovn/actions");
         private final ExecutorService compUnitThreadPool = Executors.newWorkStealingPool();
         private final List<ProfileEvent> events = new ArrayList<>();
         private final AtomicInteger errorCounter = new AtomicInteger(0);
@@ -178,7 +202,7 @@ public class DatovnTester {
 
         @Override
         public Path getBuildDirectory() {
-            return caseDirectory;
+            return workingDirectory;
         }
 
         @Override

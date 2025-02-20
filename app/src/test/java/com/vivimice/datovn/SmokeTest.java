@@ -15,6 +15,7 @@
  */
 package com.vivimice.datovn;
 
+import static com.vivimice.datovn.action.MessageLevel.ERROR;
 import static com.vivimice.datovn.action.MessageLevel.FATAL;
 import static com.vivimice.datovn.action.MessageLevel.INFO;
 
@@ -25,29 +26,32 @@ import org.junit.jupiter.api.Test;
 public class SmokeTest {
 
     @Test
-    public void emptyTest() {
+    public void emptyTest() throws Exception {
         new DatovnTester("empty").run().assertSuccess();
     }
 
     @Test
-    public void emptyStageTest() {
+    public void emptyStageTest() throws Exception {
         new DatovnTester("empty-stage").run().assertSuccess();
     }
 
     @Test
-    public void emptyStageYmlTest() {
-        new DatovnTester("empty-stage-yml").run().assertSuccess();
+    public void emptyStageYmlTest() throws Exception {
+        new DatovnTester("empty-stage-yml").run()
+            .assertFailure()
+            .assertWithErrors(1)
+            .assertHasMessage(ERROR, s -> s.contains("No content to map due to end-of-input"));
     }
 
     @Test
-    public void singleStageTest() {
+    public void singleStageTest() throws Exception {
         new DatovnTester("single-stage").run()
             .assertSuccess()
             .assertHasMessage(INFO, "Hello, World!");
     }
 
     @Test
-    public void duplicateNamesTest() {
+    public void duplicateNamesTest() throws Exception {
         new DatovnTester("duplicate-names").run()
             .assertFailure()
             .assertWithErrors(1)
@@ -57,16 +61,16 @@ public class SmokeTest {
     }
 
     @Test
-    public void basicSkippingTest() {
-        new DatovnTester("basic-skipping").run()
+    public void basicSkippingTest() throws Exception {
+        var tester = new DatovnTester("basic-skipping");
+        
+        tester.run()
            .assertSuccess()
            .assertHasEvent("loadSketches:end", data -> Objects.equals(data.get("upToDate"), false))
            .assertHasEvent("writeSketches:start")
            .assertHasMessage(INFO, "Hello, World!");
 
-        new DatovnTester("basic-skipping")
-           .preserveActions()
-           .run()
+        tester.run()
            .assertSuccess()
            .assertHasEvent("loadSketches:end", data -> Objects.equals(data.get("upToDate"), true))
            .assertNoEvent("writeSketches:start")
