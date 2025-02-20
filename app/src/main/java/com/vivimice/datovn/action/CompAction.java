@@ -15,6 +15,9 @@
  */
 package com.vivimice.datovn.action;
 
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+
 /**
  * A CompAction records a single side-effect that is performed by a CompUnit.
  * 
@@ -22,6 +25,14 @@ package com.vivimice.datovn.action;
  * 
  * Subclass of CompAction should be immutable.
  */
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
+@JsonSubTypes({
+    @JsonSubTypes.Type(value = ExecAction.class, name = "exec"),
+    @JsonSubTypes.Type(value = ExitAction.class, name = "exit"),
+    @JsonSubTypes.Type(value = FileAccessAction.class, name = "fileAccess"),
+    @JsonSubTypes.Type(value = DirectoryAccessAction.class, name = "directoryAccess"),
+    @JsonSubTypes.Type(value = MessageOutputAction.class, name = "messageOutput"),
+})
 public abstract class CompAction {
 
     /**
@@ -42,6 +53,14 @@ public abstract class CompAction {
      * 
      * @param <T> Type of the corresponding CompAction.
      */
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
+    @JsonSubTypes({
+        @JsonSubTypes.Type(value = ExecAction.Sketch.class, name = "exec"),
+        @JsonSubTypes.Type(value = ExitAction.Sketch.class, name = "exit"),
+        @JsonSubTypes.Type(value = FileAccessAction.Sketch.class, name = "fileAccess"),
+        @JsonSubTypes.Type(value = DirectoryAccessAction.Sketch.class, name = "directoryAccess"),
+        @JsonSubTypes.Type(value = MessageOutputAction.Sketch.class, name = "messageOutput"),
+    })
     public static abstract class Sketch<T extends CompAction> {
 
         public abstract T toAction(ActionPathMappingContext context);

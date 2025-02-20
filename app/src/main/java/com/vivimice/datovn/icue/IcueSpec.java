@@ -18,6 +18,8 @@ package com.vivimice.datovn.icue;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.vivimice.datovn.spec.CompExecSpec;
 import com.vivimice.datovn.util.DigestUtils;
 
@@ -65,7 +67,15 @@ public final class IcueSpec implements CompExecSpec {
      */
     private final String opaqueIdentifier;
 
-    public IcueSpec(String name, String revision, String executable, List<String> args, List<String> params, String location) {
+    @JsonCreator
+    public IcueSpec(
+        @JsonProperty("name") String name, 
+        @JsonProperty("revision") String revision, 
+        @JsonProperty("executable") String executable, 
+        @JsonProperty("args") List<String> args, 
+        @JsonProperty("params") List<String> params, 
+        @JsonProperty("location") String location
+    ) {
         if (executable == null || args == null || params == null || location == null) {
             throw new NullPointerException();
         }

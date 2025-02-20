@@ -19,7 +19,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -31,6 +30,7 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator;
 import com.vivimice.datovn.DatovnRuntimeException;
 import com.vivimice.datovn.build.BuildContext;
 import com.vivimice.datovn.spec.CompExecSpec;
@@ -42,8 +42,12 @@ public class ActionsStore {
     private static final Logger logger = LoggerFactory.getLogger(ActionsStore.class);
 
     private static final String CURRENT_FILE_VERSION = "v1";
-    private static final ObjectMapper actionsMapper = new ObjectMapper(new YAMLFactory());
+    private static final ObjectMapper actionsMapper;
     static {
+        YAMLFactory f = new YAMLFactory();
+        f.disable(YAMLGenerator.Feature.USE_NATIVE_TYPE_ID);
+        f.enable(YAMLGenerator.Feature.MINIMIZE_QUOTES);
+        actionsMapper = new ObjectMapper(f);
         actionsMapper.setSerializationInclusion(Include.NON_NULL);
     }
 
@@ -59,6 +63,10 @@ public class ActionsStore {
         } catch (IOException ex) {
             throw new DatovnRuntimeException("i/o error while create directory for action store: " + this.storeDirectory, ex);
         }
+    }
+
+    public static ObjectMapper getActionsMapper() {
+        return actionsMapper;
     }
 
     private Path getActionsFile(CompExecSpec spec) {
@@ -82,18 +90,19 @@ public class ActionsStore {
 
         String updateTime = DateTimeUtils.toIsoDateTime(System.currentTimeMillis());
 
-        Map<String, Object> data = new LinkedHashMap<>();
-        data.put("version", CURRENT_FILE_VERSION);
-        data.put("specOpaqueId", spec.getOpaqueIdentifier());
-        data.put("updateTime", updateTime);
-        data.put("actions", actions);
+        ActionFileData actionsData = new ActionFileData(
+            CURRENT_FILE_VERSION,
+            spec.getOpaqueIdentifier(),
+            updateTime,
+            actions
+        );
 
         Path actionsFile = getActionsFile(spec);
         logger.debug("Writing actions to: {}", actionsFile);
         actionsFile.getParent().toFile().mkdirs();
 
         try {
-            actionsMapper.writeValue(actionsFile.toFile(), data);
+            actionsMapper.writeValue(actionsFile.toFile(), actionsData);
         } catch (IOException ex) {
             throw new DatovnRuntimeException("i/o error while writing action to file: " + actionsFile, ex);
         }
@@ -128,17 +137,13 @@ public class ActionsStore {
         }
 
         // check version compatibility
-        if (Objects.equals(data.get("version"), CURRENT_FILE_VERSION)) {
+        if (!Objects.equals(data.get("version"), CURRENT_FILE_VERSION)) {
             throw new DatovnRuntimeException("action file version is not compatible with the current version '" + CURRENT_FILE_VERSION + "'. File: " + actionsFile);
         }
 
-        String specOpaqueId;
-        String updateTime;
-        List<CompAction> actions;
+        ActionFileData actionData;
         try {
-            specOpaqueId = actionsMapper.convertValue(data.get("specOpaqueId"), String.class);
-            updateTime = actionsMapper.convertValue(data.get("updateTime"), String.class);
-            actions = actionsMapper.convertValue(data.get("actions"), new TypeReference<List<CompAction>>() {});
+            actionData = actionsMapper.convertValue(data, ActionFileData.class);
         } catch (IllegalArgumentException ex) {
             throw new DatovnRuntimeException("malformed action data in file: " + actionsFile, ex);
         }
@@ -146,12 +151,13 @@ public class ActionsStore {
         // check opaque identifier which we'd recorded previously
         // If mismatch, means the spec we'd recorded has been changed
         logger.trace("Validating spec opaque identifier ...");
-        if (!Objects.equals(specOpaqueId, spec.getOpaqueIdentifier())) {
-            logger.debug("Spec opaque identifier mismatch. Expected: {}, Found: {}.", spec.getOpaqueIdentifier(), specOpaqueId);
+        if (!Objects.equals(actionData.specOpaqueId(), spec.getOpaqueIdentifier())) {
+            logger.debug("Spec opaque identifier mismatch. Expected: {}, Found: {}.", spec.getOpaqueIdentifier(), actionData.specOpaqueId());
             return null;
         }
 
         // validate the actions
+        List<CompAction> actions = actionData.actions();
         logger.debug("Validating actions ...");
         int index = 0;
         for (CompAction action : actions) {
@@ -171,7 +177,7 @@ public class ActionsStore {
             sketches.add(action.toSketch(mappingContext));
         }
         
-        return new LoadedSketches(sketches, updateTime);
+        return new LoadedSketches(sketches, actionData.updateTime());
     }
 
 }

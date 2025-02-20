@@ -18,6 +18,9 @@ package com.vivimice.datovn.spec;
 import java.util.List;
 import java.util.regex.Pattern;
 
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.vivimice.datovn.icue.IcueSpec;
 import com.vivimice.datovn.unit.CompUnit;
 
 /**
@@ -26,8 +29,12 @@ import com.vivimice.datovn.unit.CompUnit;
  * An immutable description of a computation unit ({@link CompUnit}). Any 
  * CompUnit must be created from a CompExecSpec.
  * 
- * A CompExecSpec should be json-serializable.
+ * A CompExecSpec should be json serializable and deserializable.
  */
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
+@JsonSubTypes({
+    @JsonSubTypes.Type(value = IcueSpec.class, name = "icue"),
+})
 public interface CompExecSpec {
 
     public static final Pattern NAME_PATTERN = Pattern.compile("[a-zA-Z0-9_.][a-zA-Z0-9_.-]+");

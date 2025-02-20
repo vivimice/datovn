@@ -48,9 +48,10 @@ public class ActionDocumentStreamTest {
         // Arrange
         when(reader.readLine()).thenReturn((String) null);
         // Act
-        ActionDocumentIterator<CompAction.Sketch<?>> iterator = ActionDocumentStream.readSketches(reader);
-        // Assert
-        assertNull(iterator.read());
+        try (SketchDocumentReader sdr = new SketchDocumentReader(reader)) {
+            // Assert
+            assertNull(sdr.read());
+        }
     }
 
     @Test
@@ -58,37 +59,18 @@ public class ActionDocumentStreamTest {
         // Arrange
         when(reader.readLine()).thenReturn(
             "---",
-            "type: message", 
+            "type: messageOutput", 
             "level: INFO", 
             "message: Test message", 
             (String) null);
 
         // Act
-        ActionDocumentIterator<CompAction.Sketch<?>> iterator = ActionDocumentStream.readSketches(reader);
-
-        // Assert
-        CompAction.Sketch<?> sketch = iterator.read();
-        assertNotNull(sketch);
-        assertNull(iterator.read());
-    }
-
-    @Test
-    public void testReadActions() throws IOException {
-        // Arrange
-        when(reader.readLine()).thenReturn(
-            "---",
-            "type: message", 
-            "level: INFO", 
-            "message: Test message", 
-            (String) null);
-
-        // Act
-        ActionDocumentIterator<CompAction> iterator = ActionDocumentStream.readActions(reader);
-
-        // Assert
-        CompAction action = iterator.read();
-        assertNotNull(action);
-        assertNull(iterator.read());
+        try (SketchDocumentReader sdr = new SketchDocumentReader(reader)) {
+            // Assert
+            CompAction.Sketch<?> sketch = sdr.read();
+            assertNotNull(sketch);
+            assertNull(sdr.read());
+        }
     }
 
     @Test
@@ -101,22 +83,9 @@ public class ActionDocumentStreamTest {
             (String) null);
 
         // Act & Assert
-        ActionDocumentIterator<CompAction.Sketch<?>> iterator = ActionDocumentStream.readSketches(reader);
-        assertThrows(MalformedActionDocumentException.class, iterator::read);
-    }
-
-    @Test
-    public void testReadActionsWithMalformedDocument() throws IOException {
-        // Arrange
-        when(reader.readLine()).thenReturn(
-            "type: invalidType", 
-            "level: INFO", 
-            "message: Test message", 
-            (String) null);
-
-        // Act & Assert
-        ActionDocumentIterator<CompAction> iterator = ActionDocumentStream.readActions(reader);
-        assertThrows(MalformedActionDocumentException.class, iterator::read);
+        try (SketchDocumentReader sdr = new SketchDocumentReader(reader)) {
+            assertThrows(MalformedActionDocumentException.class, sdr::read);
+        }
     }
 
     @Test
@@ -125,18 +94,9 @@ public class ActionDocumentStreamTest {
         when(reader.readLine()).thenThrow(new IOException("Simulated IO error"));
 
         // Act & Assert
-        ActionDocumentIterator<CompAction.Sketch<?>> iterator = ActionDocumentStream.readSketches(reader);
-        assertThrows(IOException.class, iterator::read);
-    }
-
-    @Test
-    public void testReadActionsWithIOException() throws IOException {
-        // Arrange
-        when(reader.readLine()).thenThrow(new IOException("Simulated IO error"));
-
-        // Act & Assert
-        ActionDocumentIterator<CompAction> iterator = ActionDocumentStream.readActions(reader);
-        assertThrows(IOException.class, iterator::read);
+        try (SketchDocumentReader sdr = new SketchDocumentReader(reader)) {
+            assertThrows(IOException.class, sdr::read);
+        }
     }
 
     @Test
@@ -144,81 +104,40 @@ public class ActionDocumentStreamTest {
         // Arrange
         // Simulate reading multiple YAML documents separated by "---"
         when(reader.readLine()).thenReturn(
-            "type: message",
+            "type: messageOutput",
             "level: INFO",
             "message: Test message 1",
             "---", 
-            "type: message", 
+            "type: messageOutput", 
             "level: ERROR",
             "message: Test message 2",
             "---", 
-            "type: message",
+            "type: messageOutput",
             "level: WARN",
             "message: Test message 3",
             (String) null
         );
 
         // Act
-        ActionDocumentIterator<CompAction.Sketch<?>> iterator = ActionDocumentStream.readSketches(reader);  
+        try (SketchDocumentReader sdr = new SketchDocumentReader(reader)) {
+            // Assert
+            CompAction.Sketch<?> sketch1 = sdr.read();
+            assertNotNull(sketch1);
+            assertEquals("INFO", ((MessageOutputAction.Sketch) sketch1).getLevel().toString());
+            assertEquals("Test message 1", ((MessageOutputAction.Sketch) sketch1).getMessage());
 
-        // Assert
-        CompAction.Sketch<?> sketch1 = iterator.read();
-        assertNotNull(sketch1);
-        assertEquals("INFO", ((MessageOutputAction.Sketch) sketch1).getLevel().toString());
-        assertEquals("Test message 1", ((MessageOutputAction.Sketch) sketch1).getMessage());
+            CompAction.Sketch<?> sketch2 = sdr.read();
+            assertNotNull(sketch2);
+            assertEquals("ERROR", ((MessageOutputAction.Sketch) sketch2).getLevel().toString());
+            assertEquals("Test message 2", ((MessageOutputAction.Sketch) sketch2).getMessage());
 
-        CompAction.Sketch<?> sketch2 = iterator.read();
-        assertNotNull(sketch2);
-        assertEquals("ERROR", ((MessageOutputAction.Sketch) sketch2).getLevel().toString());
-        assertEquals("Test message 2", ((MessageOutputAction.Sketch) sketch2).getMessage());
+            CompAction.Sketch<?> sketch3 = sdr.read();
+            assertNotNull(sketch3);
+            assertEquals("WARN", ((MessageOutputAction.Sketch) sketch3).getLevel().toString());
+            assertEquals("Test message 3", ((MessageOutputAction.Sketch) sketch3).getMessage());
 
-        CompAction.Sketch<?> sketch3 = iterator.read();
-        assertNotNull(sketch3);
-        assertEquals("WARN", ((MessageOutputAction.Sketch) sketch3).getLevel().toString());
-        assertEquals("Test message 3", ((MessageOutputAction.Sketch) sketch3).getMessage());
-
-        assertNull(iterator.read());
-    }
-
-    @Test
-    public void testReadActionsWithMultipleDocuments() throws IOException {
-        // Arrange
-        // Simulate reading multiple YAML documents separated by "---"
-        when(reader.readLine()).thenReturn(
-            "type: message",
-            "level: INFO",
-            "message: Test message 1",
-            "---", 
-            "type: message",
-            "level: ERROR",
-            "message: Test message 2",
-            "---", 
-            "type: message",
-            "level: WARN",
-            "message: Test message 3",
-            (String) null
-        );
-
-        // Act
-        ActionDocumentIterator<CompAction> iterator = ActionDocumentStream.readActions(reader);
-
-        // Assert
-        CompAction action1 = iterator.read();
-        assertNotNull(action1);
-        assertEquals("INFO", ((MessageOutputAction) action1).getLevel().toString());
-        assertEquals("Test message 1", ((MessageOutputAction) action1).getMessage());
-
-        CompAction action2 = iterator.read();
-        assertNotNull(action2);
-        assertEquals("ERROR", ((MessageOutputAction) action2).getLevel().toString());
-        assertEquals("Test message 2", ((MessageOutputAction) action2).getMessage());
-
-        CompAction action3 = iterator.read();
-        assertNotNull(action3);
-        assertEquals("WARN", ((MessageOutputAction) action3).getLevel().toString());
-        assertEquals("Test message 3", ((MessageOutputAction) action3).getMessage());
-
-        assertNull(iterator.read());
+            assertNull(sdr.read());
+        }
     }
 
     @Test
@@ -227,7 +146,7 @@ public class ActionDocumentStreamTest {
         // Simulate reading a valid YAML document followed by a malformed one
         when(reader.readLine()).thenReturn(
             // well-formed document
-            "type: message",
+            "type: messageOutput",
             "level: INFO",
             "message: Test message 1", 
             // Malformed document
@@ -239,47 +158,17 @@ public class ActionDocumentStreamTest {
         );
 
         // Act
-        ActionDocumentIterator<CompAction.Sketch<?>> iterator = ActionDocumentStream.readSketches(reader);
+        try (SketchDocumentReader sdr = new SketchDocumentReader(reader)) {
+            // Assert
+            CompAction.Sketch<?> sketch1 = sdr.read();
+            assertNotNull(sketch1);
+            assertEquals("INFO", ((MessageOutputAction.Sketch) sketch1).getLevel().toString());
+            assertEquals("Test message 1", ((MessageOutputAction.Sketch) sketch1).getMessage());
 
-        // Assert
-        CompAction.Sketch<?> sketch1 = iterator.read();
-        assertNotNull(sketch1);
-        assertEquals("INFO", ((MessageOutputAction.Sketch) sketch1).getLevel().toString());
-        assertEquals("Test message 1", ((MessageOutputAction.Sketch) sketch1).getMessage());
-
-        // The second document is malformed, so the next call should throw an exception
-        MalformedActionDocumentException exception = assertThrows(MalformedActionDocumentException.class, iterator::read);
-        assertTrue(exception.getMessage().contains("starting at line 4")); // Line 3 is where the malformed document starts
-    }
-
-    @Test
-    public void testReadActionsWithMalformedDocumentAndCorrectLineIndex() throws IOException {
-        // Arrange
-        // Simulate reading a valid YAML document followed by a malformed one
-        when(reader.readLine()).thenReturn(
-            "type: message", 
-            "level: INFO",
-            "message: Test message 1",
-            // Malformed document
-            "---", 
-            "type: invalidType",
-            "level: INFO",
-            "message: Test message 2",
-            (String) null
-        );
-
-        // Act
-        ActionDocumentIterator<CompAction> iterator = ActionDocumentStream.readActions(reader);
-
-        // Assert
-        CompAction action1 = iterator.read();
-        assertNotNull(action1);
-        assertEquals("INFO", ((MessageOutputAction) action1).getLevel().toString());
-        assertEquals("Test message 1", ((MessageOutputAction) action1).getMessage());
-
-        // The second document is malformed, so the next call should throw an exception
-        MalformedActionDocumentException exception = assertThrows(MalformedActionDocumentException.class, iterator::read);
-        assertTrue(exception.getMessage().contains("starting at line 4")); // Line 3 is where the malformed document starts
+            // The second document is malformed, so the next call should throw an exception
+            MalformedActionDocumentException exception = assertThrows(MalformedActionDocumentException.class, sdr::read);
+            assertTrue(exception.getMessage().contains("begining at line 4")); // Line 3 is where the malformed document starts
+        }
     }
 
 }

@@ -36,11 +36,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.vivimice.datovn.DatovnRuntimeException;
-import com.vivimice.datovn.action.ActionDocumentIterator;
-import com.vivimice.datovn.action.ActionDocumentStream;
 import com.vivimice.datovn.action.CompAction;
 import com.vivimice.datovn.action.MalformedActionDocumentException;
 import com.vivimice.datovn.action.MessageLevel;
+import com.vivimice.datovn.action.SketchDocumentReader;
 import com.vivimice.datovn.unit.AbstractCompUnit;
 import com.vivimice.datovn.unit.CompActionRecorder;
 import com.vivimice.datovn.unit.CompUnit;
@@ -164,10 +163,11 @@ public final class IcueUnit extends AbstractCompUnit<IcueSpec> {
         }
         
         // Copy actions from temporary file to actionsOutput
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(Files.newInputStream(actionsFile), StandardCharsets.UTF_8))) {
-            ActionDocumentIterator<CompAction.Sketch<?>> read = ActionDocumentStream.readSketches(reader);
+        try (SketchDocumentReader reader = new SketchDocumentReader(new BufferedReader(
+                new InputStreamReader(Files.newInputStream(actionsFile), StandardCharsets.UTF_8)))
+        ) {
             while (true) {
-                CompAction.Sketch<?> sketch = read.read();
+                CompAction.Sketch<?> sketch = reader.read();
                 if (sketch == null) {
                     break;
                 }

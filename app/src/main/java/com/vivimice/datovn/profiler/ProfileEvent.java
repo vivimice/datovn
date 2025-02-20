@@ -21,10 +21,21 @@ import com.fasterxml.jackson.annotation.JsonAnyGetter;
 import com.fasterxml.jackson.annotation.JsonAnySetter;
 
 public record ProfileEvent(
+    /**
+     * Number of nanoseconds since the build start
+     */
     long clock,
+
+    /**
+     * Name of the event.
+     */
     String name,
     
+    /**
+     * Additional data associated with the event. This can be any JSON-serializable object. Won't be null.
+     */
     @JsonAnySetter
     @JsonAnyGetter
     Map<String, Object> data
+
 ) {}

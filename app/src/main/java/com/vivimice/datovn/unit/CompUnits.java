@@ -47,7 +47,7 @@ public class CompUnits {
      * @param type "type" field in stage.yml's unit section.
      * @return The descriptor class. Null if the type is unknown.
      */
-    public static Class<? extends UnitDescriptor> lookupDescriptorClass(String type) throws IllegalArgumentException {
+    public static Class<? extends UnitDescriptor> lookupDescriptorClass(String type) {
         return switch (type) {
             case "icue" -> IcueUnitDescriptor.class;
             case null -> IcueUnitDescriptor.class; // default as ICUE units

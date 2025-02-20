@@ -15,10 +15,14 @@
  */
 package com.vivimice.datovn.action;
 
-import java.io.IOException;
+import java.util.List;
 
-public interface ActionDocumentIterator<T> {
-
-    T read() throws MalformedActionDocumentException, IOException;
-
-}
+/**
+ * POJO that describes the format of current data format storing actions by ActionStore.
+ */
+public record ActionFileData(
+    String version,
+    String specOpaqueId,
+    String updateTime,
+    List<CompAction> actions
+) {}

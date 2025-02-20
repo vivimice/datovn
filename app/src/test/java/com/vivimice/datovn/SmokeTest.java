@@ -15,9 +15,12 @@
  */
 package com.vivimice.datovn;
 
-import org.junit.jupiter.api.Test;
+import static com.vivimice.datovn.action.MessageLevel.FATAL;
+import static com.vivimice.datovn.action.MessageLevel.INFO;
 
-import static com.vivimice.datovn.action.MessageLevel.*;
+import java.util.Objects;
+
+import org.junit.jupiter.api.Test;
 
 public class SmokeTest {
 
@@ -51,6 +54,23 @@ public class SmokeTest {
             .assertHasMessage(INFO, "Hello, World!")
             .assertHasMessage(INFO, "Hello, World! Again!")
             .assertHasMessage(FATAL, "Spec 'hello-world' already scheduled in the same stage. Duplicate specs with same names in the same stage are not allowed.");
+    }
+
+    @Test
+    public void basicSkippingTest() {
+        new DatovnTester("basic-skipping").run()
+           .assertSuccess()
+           .assertHasEvent("loadSketches:end", data -> Objects.equals(data.get("upToDate"), false))
+           .assertHasEvent("writeSketches:start")
+           .assertHasMessage(INFO, "Hello, World!");
+
+        new DatovnTester("basic-skipping")
+           .preserveActions()
+           .run()
+           .assertSuccess()
+           .assertHasEvent("loadSketches:end", data -> Objects.equals(data.get("upToDate"), true))
+           .assertNoEvent("writeSketches:start")
+           .assertHasMessage(INFO, "Hello, World!");
     }
 
 }

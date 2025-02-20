@@ -41,7 +41,7 @@ public final class ExecAction extends CompAction {
         return true;
     }
 
-    public final CompExecSpec getSpec() {
+    public CompExecSpec getSpec() {
         return spec;
     }
 

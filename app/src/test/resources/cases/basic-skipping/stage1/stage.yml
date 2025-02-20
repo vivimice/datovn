@@ -1,0 +1,3 @@
+units:
+- name: hello-world
+  command: jshell hello-world.jsh

@@ -36,6 +36,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.vivimice.datovn.action.MessageLevel;
 import com.vivimice.datovn.build.BuildContext;
 import com.vivimice.datovn.build.CompBuild;
@@ -44,13 +47,13 @@ import com.vivimice.datovn.profiler.ProfileEvent;
 
 public class DatovnTester {
 
+    private static final Logger logger = LoggerFactory.getLogger(DatovnTester.class);
+
     private final Path caseDirectory;
     private final TestBuildContextImpl buildContext;
     
     private boolean preserveActions = false;
-    private List<ProfileEvent> events = new ArrayList<>();
     private DatovnRuntimeException executionException;
-    
 
     public DatovnTester(String caseName) {
         caseDirectory = Path.of("src/test/resources/cases", caseName);
@@ -88,6 +91,8 @@ public class DatovnTester {
     }
 
     public ResultChecker run() {
+        logger.info("DatovnTester build start.");
+
         if (!preserveActions) {
             removePathRecursively(buildContext.actionStoreDirectory);
         }
@@ -126,6 +131,25 @@ public class DatovnTester {
             return this;
         }
 
+        public ResultChecker assertNoEvent(String name) {
+            boolean found = buildContext.events.stream().anyMatch(
+                event -> event.name().equals(name));
+            assertTrue(!found, "unexpected event found");
+            return this;
+        }
+
+        public ResultChecker assertHasEvent(String expectedName, Predicate<Map<String, Object>> dataFilter) {
+            boolean found = buildContext.events.stream().anyMatch(
+                event -> event.name().equals(expectedName) && dataFilter.test(event.data()));
+            assertTrue(found, "expected event not found");
+            return this;
+        }
+
+        public ResultChecker assertHasEvent(String expectedName) {
+            assertHasEvent(expectedName, data -> true);
+            return this;
+        }
+
         public ResultChecker assertFailure() {
             if (executionException == null) {
                 assertTrue(buildContext.errorCounter.get() > 0, "Neighther error nor DatovnRuntimeException were reported during build");
@@ -143,12 +167,14 @@ public class DatovnTester {
     }
 
     private class TestBuildContextImpl implements BuildContext {
+
         private final Path actionStoreDirectory = caseDirectory.resolve(".datovn/actions");
         private final ExecutorService compUnitThreadPool = Executors.newWorkStealingPool();
-        private final BuildProfiler profiler = new BuildProfiler(events::add);
+        private final List<ProfileEvent> events = new ArrayList<>();
         private final AtomicInteger errorCounter = new AtomicInteger(0);
         private final AtomicInteger warningCounter = new AtomicInteger(0);
         private final Map<MessageLevel, List<String>> messages = new ConcurrentHashMap<>();
+        private final BuildProfiler profiler = new BuildProfiler(events::add);
 
         @Override
         public Path getBuildDirectory() {
