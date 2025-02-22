@@ -33,7 +33,7 @@ import org.mockito.MockitoAnnotations;
 /**
  * Unit tests for ActionDocumentStream class.
  */
-public class ActionDocumentStreamTest {
+public class SketchDocumentStreamTest {
 
     @Mock
     private BufferedReader reader;
@@ -104,6 +104,7 @@ public class ActionDocumentStreamTest {
         // Arrange
         // Simulate reading multiple YAML documents separated by "---"
         when(reader.readLine()).thenReturn(
+            "---",
             "type: messageOutput",
             "level: INFO",
             "message: Test message 1",

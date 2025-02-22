@@ -264,10 +264,6 @@ public class CompStage {
         public synchronized void accept(CompAction.Sketch<?> sketch) {
             recordedSketches.add(sketch);
 
-            if (explicitExitCode.isPresent()) {
-                reportProcessingError("no further actions shall be recorded after an explicit exit code has been set.");
-            }
-
             switch (sketch) {
                 case ExecAction.Sketch execSketch:
                     // we record exec sketches for subsequent execution.
@@ -285,6 +281,9 @@ public class CompStage {
                     break;
 
                 case ExitAction.Sketch exitSketch:
+                    if (explicitExitCode.isPresent()) {
+                        reportProcessingError("Explicit exit code already set. Cannot override with another one.");
+                    }
                     explicitExitCode = Optional.of(exitSketch.getExitCode());
                     if (hasFatalError && exitSketch.getExitCode() == 0) {
                         reportProcessingError("Exit code cannot be zero while there are fatal errors reported.");

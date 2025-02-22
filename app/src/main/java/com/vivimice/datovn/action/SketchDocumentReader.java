@@ -89,7 +89,7 @@ public class SketchDocumentReader implements AutoCloseable {
         try {
             return mapper.readValue(source, new TypeReference<CompAction.Sketch<?>>() {});
         } catch (IOException ex) {
-            throw new MalformedActionDocumentException("Malformed yaml document begining at line " + lineNumber, ex);
+            throw new MalformedActionDocumentException("Malformed yaml document begining at line " + lineNumber + ", document: \n" + source, ex);
         }
     }
 

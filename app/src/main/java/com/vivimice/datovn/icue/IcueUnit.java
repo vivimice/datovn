@@ -178,6 +178,13 @@ public final class IcueUnit extends AbstractCompUnit<IcueSpec> {
         } catch (IOException ex) {
             throw new DatovnRuntimeException("I/O error while loading action document", ex);
         }
+
+        // Remove temporary file
+        try {
+            Files.deleteIfExists(actionsFile);
+        } catch (IOException ex) {
+            logger.warn("i/o error while remove actions output file: {}. This won't cause any build error, but might leave garbages in the system. Please check and clean up manually.", actionsFile);
+        }
     }
 
 }
