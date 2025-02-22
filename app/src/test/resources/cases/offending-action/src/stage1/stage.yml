@@ -1,0 +1,5 @@
+units:
+- name: write-foo
+  command: jshell write-foo.jsh
+- name: read-foo
+  command: jshell read-foo.jsh

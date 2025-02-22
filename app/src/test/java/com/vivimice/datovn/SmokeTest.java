@@ -122,5 +122,16 @@ public class SmokeTest {
             .assertHasMessage(INFO, "Param #0: alice");
     }
 
+    @Test
+    public void offendingActionTest() throws Exception {
+        var tester = new DatovnTester("offending-action");
+        tester.run()
+            .assertFailure()
+            .assertHasMessage(FATAL, msg -> 
+                msg.contains("file access with mode") && 
+                msg.contains("offends operation from")
+            );
+    }
+
 
 }

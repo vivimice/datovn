@@ -221,7 +221,7 @@ public class DatovnTester {
 
         public ResultChecker assertFailure() {
             if (executionException == null) {
-                assertTrue(buildContext.errorCounter.get() > 0, "Neighther error nor DatovnRuntimeException were reported during build");
+                assertTrue(buildContext.errorCounter.get() > 0, "Neither error nor DatovnRuntimeException were reported during build");
             }
             return this;
         }
