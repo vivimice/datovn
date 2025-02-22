@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -46,6 +47,8 @@ import com.vivimice.datovn.build.BuildContext;
 import com.vivimice.datovn.build.CompBuild;
 import com.vivimice.datovn.profiler.BuildProfiler;
 import com.vivimice.datovn.profiler.ProfileEvent;
+
+import ch.qos.logback.classic.Level;
 
 public class DatovnTester {
 
@@ -84,6 +87,26 @@ public class DatovnTester {
         });
     }
 
+    public DatovnTester enableTracing() {
+        setLogLevel(Level.TRACE);
+        return this;
+    }
+
+    public DatovnTester disableTracing() {
+        setLogLevel(Level.DEBUG);
+        return this;
+    }
+
+    public DatovnTester setLogLevel(ch.qos.logback.classic.Level level) {
+        ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME))
+            .setLevel(level);
+        return this;
+    }
+
+    public TestDataManipulator adjustWorkspacePath(String workspacePath) {
+        return new TestDataManipulator(workspacePath);
+    }
+
     private static void removePathRecursively(Path p) throws IOException {
         if (Files.exists(p, LinkOption.NOFOLLOW_LINKS)) {
             Files.walkFileTree(p, new SimpleFileVisitor<Path>() {
@@ -119,6 +142,21 @@ public class DatovnTester {
 
         logger.info("DatovnTester build stopped (Pass #{})", currentPass);
         return checker;
+    }
+
+    public class TestDataManipulator {
+
+        private final Path target; // in working directory
+
+        public TestDataManipulator(String workspacePath) {
+            this.target = workingDirectory.resolve(Path.of(workspacePath));
+        }
+
+        public DatovnTester bySetContent(String content) throws IOException {
+            Files.write(target, content.getBytes(StandardCharsets.UTF_8));
+            return DatovnTester.this;
+        }
+
     }
 
     public class ResultChecker {
