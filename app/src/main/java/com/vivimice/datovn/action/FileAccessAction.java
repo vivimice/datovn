@@ -57,7 +57,7 @@ public final class FileAccessAction extends CompAction {
         boolean upToDate = Objects.equals(stat, newStat);
         if (logger.isTraceEnabled()) {
             if (upToDate) {
-                logger.trace("File access up-to-date: {}", p);
+                logger.trace("File access up-to-date: {}, recorded stat: {}, new stat: {}", p, stat, newStat);
             } else {
                 logger.trace("File access not up-to-date: {}, recorded stat: {}, new stat: {}", p, stat, newStat);
             }

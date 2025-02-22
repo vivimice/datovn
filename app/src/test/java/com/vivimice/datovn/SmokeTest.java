@@ -77,4 +77,30 @@ public class SmokeTest {
            .assertHasMessage(INFO, "Hello, World!");
     }
 
+    @Test
+    public void ioBasedSkipping() throws Exception {
+        var tester = new DatovnTester("io-based-skipping");
+        
+        tester.run()
+            .assertSuccess()
+            .assertHasEvent("loadSketches:end", data -> Objects.equals(data.get("upToDate"), false))
+            .assertHasEvent("writeSketches:start")
+            .assertHasMessage(INFO, "Hello, World!");
+
+        tester.run()
+            .assertSuccess()
+            .assertHasEvent("loadSketches:end", data -> Objects.equals(data.get("upToDate"), true))
+            .assertNoEvent("writeSketches:start")
+            .assertHasMessage(INFO, "Hello, World!");
+
+        tester
+            .adjustWorkspacePath("stage1/foo.txt")
+                .bySetContent("Hello, World! Again!")
+            .run()
+            .assertHasEvent("loadSketches:end", data -> Objects.equals(data.get("upToDate"), false))
+            .assertHasEvent("writeSketches:start")
+            .assertHasMessage(INFO, "Hello, World! Again!");
+    }
+
+
 }

@@ -1,0 +1,3 @@
+units:
+- name: foo
+  command: jshell foo.jsh
