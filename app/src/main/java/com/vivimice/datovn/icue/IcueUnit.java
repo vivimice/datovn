@@ -70,7 +70,7 @@ public final class IcueUnit extends AbstractCompUnit<IcueSpec> {
         } catch (IOException ex) {
             throw new DatovnRuntimeException("Failed to create temporary actions output file", ex);
         }
-        logger.debug("Created actions output file: ", actionsFile);
+        logger.debug("Created actions output file: {}", actionsFile);
 
         // Prepare environment variables for ICUE executable
         Map<String, String> envs = new HashMap<>();
