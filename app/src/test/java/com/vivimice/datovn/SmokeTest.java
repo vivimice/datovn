@@ -102,5 +102,25 @@ public class SmokeTest {
             .assertHasMessage(INFO, "Hello, World! Again!");
     }
 
+    @Test
+    public void paramAccessTest() throws Exception {
+        var tester = new DatovnTester("param-access");
+
+        tester.run()
+            .assertSuccess()
+            .assertHasMessage(INFO, "Params count: 2")
+            .assertHasMessage(INFO, "Param #0: alice")
+            .assertHasMessage(INFO, "Param #1: bob");
+
+        tester
+            .enableTracing()
+            .adjustWorkspacePath("stage1/stage.yml")
+                .byReplaceAll("(?m)^\\s+- bob$", "")
+            .run()
+            .assertSuccess()
+            .assertHasMessage(INFO, "Params count: 1")
+            .assertHasMessage(INFO, "Param #0: alice");
+    }
+
 
 }

@@ -157,6 +157,13 @@ public class DatovnTester {
             return DatovnTester.this;
         }
 
+        public DatovnTester byReplaceAll(String pattern, String replacement) throws IOException {
+            String content = new String(Files.readAllBytes(target), StandardCharsets.UTF_8);
+            content = content.replaceAll(pattern, replacement);
+            Files.write(target, content.getBytes(StandardCharsets.UTF_8));
+            return DatovnTester.this;
+        }
+
     }
 
     public class ResultChecker {

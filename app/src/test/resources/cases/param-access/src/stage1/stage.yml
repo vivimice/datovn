@@ -1,0 +1,6 @@
+units:
+- name: param-access
+  command: jshell param-access.jsh
+  params:
+  - alice
+  - bob
