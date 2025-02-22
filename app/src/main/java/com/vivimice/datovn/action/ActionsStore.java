@@ -150,10 +150,12 @@ public class ActionsStore {
 
         // check opaque identifier which we'd recorded previously
         // If mismatch, means the spec we'd recorded has been changed
-        logger.trace("Validating spec opaque identifier ...");
+        logger.debug("Validating spec opaque identifier ...");
         if (!Objects.equals(actionData.specOpaqueId(), spec.getOpaqueIdentifier())) {
             logger.debug("Spec opaque identifier mismatch. Expected: {}, Found: {}.", spec.getOpaqueIdentifier(), actionData.specOpaqueId());
             return null;
+        } else {
+            logger.trace("Spec opaque identifier matches. Expected: {}, Found: {}.", spec.getOpaqueIdentifier(), actionData.specOpaqueId());
         }
 
         // validate the actions
