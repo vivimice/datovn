@@ -15,36 +15,75 @@
  */
 package com.vivimice.datovn.stage.bootstrap;
 
-import java.io.IOException;
-import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
-@JsonDeserialize(using = IcueUnitDescriptor.JsonDeserializer.class)
 public class IcueUnitDescriptor extends UnitDescriptor {
 
     private String revision;
+    private Object command;
+
+    @JsonIgnore
     private String executable;
+
+    @JsonIgnore
     private List<String> args;
 
+    @Override
+    public void afterMapping(ObjectMapper mapper) throws IllegalArgumentException {
+        super.afterMapping(mapper);
+
+        if (command == null) {
+            throw new IllegalArgumentException("Missing 'command' field in ICUE unit descriptor.");
+        }
+
+        List<String> cmd;
+        try {
+            if (command instanceof Collection) {
+                cmd = mapper.convertValue(command, new TypeReference<List<String>>() {});
+            } else {
+                cmd = List.of(mapper.convertValue(command, String.class).split("\\s+"));
+            }
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("'command' field in ICUE unit descriptor must be string or array of strings.");
+        }
+
+        if (cmd.isEmpty()) {
+            throw new IllegalArgumentException("'command' field in ICUE unit descriptor cannot be empty.");
+        }
+
+        executable = cmd.get(0);
+        args = List.copyOf(cmd.subList(1, cmd.size()));
+    }
+
+    public Object getCommand() {
+        return command;
+    }
+
+    public void setCommand(Object command) {
+        this.command = command;
+    }
+
+    @JsonIgnore
     public String getExecutable() {
         return executable;
     }
 
+    @JsonIgnore
     public void setExecutable(String executable) {
         this.executable = executable;
     }
 
+    @JsonIgnore
     public List<String> getArgs() {
         return args;
     }
 
+    @JsonIgnore
     public void setArgs(List<String> args) {
         this.args = args;
     }
@@ -55,42 +94,6 @@ public class IcueUnitDescriptor extends UnitDescriptor {
 
     public void setRevision(String revision) {
         this.revision = revision;
-    }
-
-    public static class JsonDeserializer extends StdDeserializer<IcueUnitDescriptor> {
-
-        public JsonDeserializer() {
-            super(JsonDeserializer.class);
-        }
-
-        @Override
-        public IcueUnitDescriptor deserialize(JsonParser p, DeserializationContext ctx) throws IOException {
-            // TODO: get correct json location
-            JsonNode node = p.readValueAsTree();
-
-            IcueUnitDescriptor descriptor = new IcueUnitDescriptor();
-
-            JsonNode commandNode = node.get("command");
-            if (commandNode == null) {
-                // when "command" field is not present, we raise an exception as this field is required
-                throw new JsonMappingException(p, "Missing 'command' field in ICUE unit descriptor.");
-            } else if (commandNode.isArray()) {
-                // when "command" field is an array, we treat the first element as the executable and the rest as arguments
-                descriptor.setExecutable(commandNode.get(0).asText());
-                List<String> args = new ArrayList<>();
-                for (int i = 1; i < commandNode.size(); i++) {
-                    args.add(commandNode.get(i).asText());
-                }
-                descriptor.setArgs(args);
-            } else {
-                // when "command" field is a string, we split it by whitespaces and treat the first part as the executable and the rest as arguments
-                String[] parts = commandNode.asText().split("\\s+");
-                descriptor.setExecutable(parts[0]);
-                descriptor.setArgs(List.of(parts).subList(1, parts.length));
-            }
-
-            return descriptor;
-        }
     }
 
 }

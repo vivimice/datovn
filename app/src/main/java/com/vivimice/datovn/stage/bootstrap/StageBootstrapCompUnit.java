@@ -66,6 +66,7 @@ public class StageBootstrapCompUnit extends AbstractCompUnit<StageBootstrapSpec>
         List<UnitDescriptor> units = descriptor.getUnits();
         if (units != null) {
             for (UnitDescriptor unit : descriptor.getUnits()) {
+                unit.afterMapping(mapper);
                 CompExecSpec spec = CompUnits.createSpec(unit);
                 if (spec != null) {
                     recorder.recordInfo("Scheduled unit: " + spec.getName());

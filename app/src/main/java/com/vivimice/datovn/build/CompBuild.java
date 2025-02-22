@@ -64,8 +64,7 @@ public class CompBuild {
     private void runStage(Path stageDir) {
         StageContext stageContext = new StageContextImpl(stageDir);
         CompStage stage = new CompStage(stageContext);
-        String location = context.getBuildDirectory().relativize(stageDir).toString();
-        stage.start(new StageBootstrapSpec(location));
+        stage.start(new StageBootstrapSpec());
     }
 
     private class StageContextImpl implements StageContext {

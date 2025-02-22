@@ -63,13 +63,6 @@ public interface CompExecSpec {
     String getName();
 
     /**
-     * Returns the location string displayed in error messages.
-     * 
-     * Won't be null.
-     */
-    String getLocation();
-
-    /**
      * Returns the arguments to pass to the computation unit upon execution.
      * 
      * Won't be null.

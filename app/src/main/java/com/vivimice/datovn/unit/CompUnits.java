@@ -42,20 +42,6 @@ public class CompUnits {
     }
 
     /**
-     * Factory method to determine the appropriate descriptor class based on the given type.
-     * 
-     * @param type "type" field in stage.yml's unit section.
-     * @return The descriptor class. Null if the type is unknown.
-     */
-    public static Class<? extends UnitDescriptor> lookupDescriptorClass(String type) {
-        return switch (type) {
-            case "icue" -> IcueUnitDescriptor.class;
-            case null -> IcueUnitDescriptor.class; // default as ICUE units
-            default -> null;
-        };
-    }
-
-    /**
      * Create a computation execution specification from the given descriptor.
      * 
      * @param descriptor The descriptor of the computation unit defined by stage.yml. Can't be null.
@@ -69,8 +55,7 @@ public class CompUnits {
                 unit.getRevision(),
                 unit.getExecutable(),
                 unit.getArgs(), 
-                unit.getParams(), 
-                unit.getLocation().toString()
+                unit.getParams()
             );
             default -> null;
         };

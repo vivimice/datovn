@@ -23,13 +23,7 @@ import com.vivimice.datovn.util.DigestUtils;
 public final class StageBootstrapSpec implements CompExecSpec {
 
     private static final String OPAQUE_IDENTIFIER = DigestUtils.sha256Hex("bootstrap");
-    private final String location;
     
-    public StageBootstrapSpec(String location) {
-        assert location != null;
-        this.location = location;
-    }
-
     @Override
     public String getName() {
         return "bootstrap";
@@ -38,11 +32,6 @@ public final class StageBootstrapSpec implements CompExecSpec {
     @Override
     public String getOpaqueIdentifier() {
         return OPAQUE_IDENTIFIER;
-    }
-
-    @Override
-    public String getLocation() {
-        return location;
     }
 
     @Override

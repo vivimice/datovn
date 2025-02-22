@@ -56,13 +56,6 @@ public final class IcueSpec implements CompExecSpec {
     private final List<String> params;
 
     /**
-     * Location of this ICUE specification. Mainly used for logging or diagnostics. 
-     * 
-     * Won't be null.
-     */
-    private final String location;
-
-    /**
      * Opaque identifier for this spec.
      */
     private final String opaqueIdentifier;
@@ -73,17 +66,15 @@ public final class IcueSpec implements CompExecSpec {
         @JsonProperty("revision") String revision, 
         @JsonProperty("executable") String executable, 
         @JsonProperty("args") List<String> args, 
-        @JsonProperty("params") List<String> params, 
-        @JsonProperty("location") String location
+        @JsonProperty("params") List<String> params
     ) {
-        if (executable == null || args == null || params == null || location == null) {
+        if (executable == null || args == null || params == null) {
             throw new NullPointerException();
         }
         
         this.executable = executable;
         this.args = args;
         this.params = params;
-        this.location = location;
         this.revision = revision;
 
         String keyProperties = "icue:" + executable + ":" + args.stream().collect(Collectors.joining(" ")) + ";" + params.stream().collect(Collectors.joining(","));
@@ -115,11 +106,6 @@ public final class IcueSpec implements CompExecSpec {
     @Override
     public List<String> getParams() {
         return params;
-    }
-
-    @Override
-    public String getLocation() {
-        return location;
     }
 
     public String getExecutable() {
