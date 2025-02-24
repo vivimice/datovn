@@ -59,6 +59,13 @@ public interface StageContext {
     /**
      * Log a message with specified level.
      */
-    void logMessage(MessageLevel level, String message);
+    void logMessage(MessageLevel level, String message, String location);
+
+    /**
+     * Log the progress of the current computation stage. The progress should be in range [0, 1].
+     * @param progress
+     * @param description
+     */
+    void logProgress(double progress, String message);
 
 }

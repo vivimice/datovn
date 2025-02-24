@@ -62,7 +62,8 @@ public class CompStage {
     
     // Variables that must be protected by <code>synchronized (this) {}</code> block
     // Number of remaining unfinished computations
-    private int remainComps = 0;
+    private int remainExecutions = 0;
+    private int totalExecutions = 0;
 
     public CompStage(StageContext context) {
         assert context != null;
@@ -89,13 +90,14 @@ public class CompStage {
             
             synchronized (this) {
                 // Check if already started
-                assert remainComps == 0;
+                assert remainExecutions == 0;
+                totalExecutions = 0;
 
                 // Schedule the initial computation
                 schedule(initialSpec);
 
                 // Wait for all unfinished computations to finish
-                while (remainComps > 0) {
+                while (remainExecutions > 0) {
                     try {
                         wait();
                     } catch (InterruptedException e) {
@@ -122,31 +124,37 @@ public class CompStage {
         
         Executor threadPool = context.getCompUnitThreadPool();
         synchronized (this) {
-            remainComps++;
+            remainExecutions++;
+            totalExecutions++;
             threadPool.execute(() -> {
-                try (MDCCloseable stageMdcc = MDC.putCloseable("stageName", context.getStageName())) {
+                try (MDCCloseable stageMdcc = MDC.putCloseable("stage", context.getStageName())) {
                     logger.debug("Starting computation ...");
-                    UnitContext execContext = new UnitContextImpl(profiler);
+                    
+                    // report progress
+                    double progress = 1d * (totalExecutions - remainExecutions) / totalExecutions;
+                    context.logProgress(progress, "Building unit: " + spec.getName());
+                    
+                    UnitContext execContext = new UnitContextImpl(profiler, spec);
                     try (
-                        MDCCloseable unitMdcc = MDC.putCloseable("unitName", spec.getName());
+                        MDCCloseable unitMdcc = MDC.putCloseable("unit", spec.getName());
                         ProfilerCloseable pc = profiler.wrapExecution();
                     ) {
                         // execute computation
                         execute(spec, execContext);
                     } catch (DatovnRuntimeException ex) {
                         // log and handle expected runtime exceptions
-                        execContext.logMessage(MessageLevel.FATAL, ex.getMessage());
+                        execContext.logMessage(MessageLevel.FATAL, ex.getMessage(), null);
                         if (ex.getCause() != null) {
-                            logger.debug("Datovn runtime exception", ex);
+                            logger.warn("Datovn runtime exception", ex);
                         }
                     } catch (RuntimeException ex) {
                         // log and handle unhandled runtime exception, as last resort
-                        execContext.logMessage(MessageLevel.FATAL, "internal error: " + ex.getMessage());
-                        logger.debug("Unhandled runtime exception during execution", ex);
+                        execContext.logMessage(MessageLevel.FATAL, "internal error: " + ex.getMessage(), null);
+                        logger.warn("Unhandled runtime exception during execution", ex);
                     } finally {
                         logger.debug("Computation finished");
                         synchronized (this) {
-                            remainComps--;
+                            remainExecutions--;
                             notifyAll();
                         }
                     }
@@ -189,8 +197,8 @@ public class CompStage {
         }
 
         // Report addition errors during action recording
-        for (String error : actionProcessor.processingErrors) {
-            execContext.logMessage(MessageLevel.ERROR, error);
+        for (ProcessingError pe : actionProcessor.processingErrors) {
+            execContext.logMessage(MessageLevel.ERROR, pe.message(), pe.location());
         }
 
         // Write sketches to store, if out-of-date.
@@ -212,9 +220,11 @@ public class CompStage {
     private class UnitContextImpl implements UnitContext {
 
         private final UnitProfiler profiler;
+        private final CompExecSpec spec;
 
-        UnitContextImpl(UnitProfiler profiler) {
+        UnitContextImpl(UnitProfiler profiler, CompExecSpec spec) {
             this.profiler = profiler;
+            this.spec = spec;
         }
 
         @Override
@@ -223,8 +233,13 @@ public class CompStage {
         }
 
         @Override
-        public void logMessage(MessageLevel level, String message) {
-            context.logMessage(level, message);
+        public void logMessage(MessageLevel level, String message, String loc) {
+            String location = spec.getName();
+            if (loc != null && !loc.isBlank()) {
+                location += " (" + loc + ")";
+            }
+
+            context.logMessage(level, message, location);
         }
 
         @Override
@@ -234,6 +249,8 @@ public class CompStage {
 
     }
 
+    private static record ProcessingError (String message, String location) {}
+
     private static class CompActionProcessor implements Consumer<CompAction.Sketch<?>> {
 
         private final List<CompAction.Sketch<?>> recordedSketches = new LinkedList<>();
@@ -242,7 +259,7 @@ public class CompStage {
         private final UnitContext execContext;
         private final OffendingPathAccessChecker<String> pathAccessChecker;
         private final CompExecSpec spec;
-        private final List<String> processingErrors = new ArrayList<>();
+        private final List<ProcessingError> processingErrors = new ArrayList<>();
 
         private boolean hasFatalError = false;
         private Optional<Integer> explicitExitCode = Optional.empty();
@@ -282,21 +299,22 @@ public class CompStage {
 
                 case ExitAction.Sketch exitSketch:
                     if (explicitExitCode.isPresent()) {
-                        reportProcessingError("Explicit exit code already set. Cannot override with another one.");
+                        reportProcessingError("Explicit exit code already set. Cannot override with another one.", null);
                     }
                     explicitExitCode = Optional.of(exitSketch.getExitCode());
                     if (hasFatalError && exitSketch.getExitCode() == 0) {
-                        reportProcessingError("Exit code cannot be zero while there are fatal errors reported.");
+                        reportProcessingError("Exit code cannot be zero while there are fatal errors reported.", null);
                     }
                     break;
 
                 case MessageOutputAction.Sketch messageSketch:
                     MessageLevel level = messageSketch.getLevel();
                     String message = messageSketch.getMessage();
+                    String location = messageSketch.getLocation();
                     // we record there was a fatal error
                     hasFatalError |= (level == MessageLevel.FATAL);
                     // we direct all messages to execution context
-                    execContext.logMessage(level, message);
+                    execContext.logMessage(level, message, location);
                     execContext.getProfiler().onMessage(level, message);
                     break;
 
@@ -359,8 +377,8 @@ public class CompStage {
             }
         }
 
-        private void reportProcessingError(String message) {
-            processingErrors.add(message);
+        private void reportProcessingError(String message, String location) {
+            processingErrors.add(new ProcessingError(message, location));
         }
 
     }

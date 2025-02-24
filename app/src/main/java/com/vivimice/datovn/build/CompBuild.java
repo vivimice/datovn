@@ -18,7 +18,9 @@ package com.vivimice.datovn.build;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.concurrent.Executor;
+import java.util.stream.Collectors;
 
 import com.vivimice.datovn.DatovnRuntimeException;
 import com.vivimice.datovn.action.ActionsStore;
@@ -33,6 +35,8 @@ public class CompBuild {
 
     private final BuildContext context;
 
+    private int totalStages;
+
     public CompBuild(BuildContext context) {
         assert context != null;
         this.context = context;
@@ -44,25 +48,28 @@ public class CompBuild {
             throw new DatovnRuntimeException("build dir is not a directory: " + buildDirectory);
         }
 
+        List<Path> stageDirectories;
         try (ProfilerCloseable pc = context.getProfiler().wrapBuild()) {
             // every directory under the build directory corresponding to a stage
-            Files.list(buildDirectory).forEach(p -> {
-                if (p.getFileName().toString().startsWith(".")) {
-                    // we skip hidden directories (e.g. .git) and files
-                    return;
-                }
-
-                if (Files.isDirectory(p)) {
-                    runStage(p);
-                }
-            });
+            stageDirectories = Files.list(buildDirectory)
+                .filter(Files::isDirectory) // only directories
+                .filter(p -> !p.getFileName().toString().startsWith(".")) // we skip hidden directories (e.g. .git)
+                .collect(Collectors.toList());
         } catch (IOException ex) {
             throw new DatovnRuntimeException("i/o error while listing build dir: " + buildDirectory);
         }
+
+        totalStages = stageDirectories.size();
+        int stageIndex = 0;
+        for (Path stageDirectory : stageDirectories) {
+            runStage(stageDirectory, stageIndex++);
+        }
     }
 
-    private void runStage(Path stageDir) {
-        StageContext stageContext = new StageContextImpl(stageDir);
+    private void runStage(Path stageDir, int stageIndex) {
+        StageContext stageContext = new StageContextImpl(stageDir, stageIndex);
+        stageContext.logProgress(0, "Building stage: " + stageContext.getStageName());
+
         CompStage stage = new CompStage(stageContext);
         stage.start(new StageBootstrapSpec());
     }
@@ -72,10 +79,12 @@ public class CompBuild {
         private final StageProfiler profiler = context.getProfiler().createStageProfiler();
         private final Path stageDirectory;
         private final String name;
+        private final int stageIndex;
 
-        public StageContextImpl(Path stageDirectory) {
+        public StageContextImpl(Path stageDirectory, int stageIndex) {
             this.name = stageDirectory.getFileName().toString();
             this.stageDirectory = stageDirectory;
+            this.stageIndex = stageIndex;
         }
 
         @Override
@@ -104,8 +113,15 @@ public class CompBuild {
         }
 
         @Override
-        public void logMessage(MessageLevel level, String message) {
-            context.logMessage(level, message);
+        public void logMessage(MessageLevel level, String message, String location) {
+            context.logMessage(level, message, location);
+        }
+
+        @Override
+        public void logProgress(double progress, String description) {
+            double base = 1.d * stageIndex / totalStages;
+            double scale = 1.d / totalStages;
+            context.logProgress(base + progress * scale, description);
         }
 
     }

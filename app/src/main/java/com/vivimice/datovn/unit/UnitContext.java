@@ -33,7 +33,7 @@ public interface UnitContext {
     /**
      * Log a message with specified level.
      */
-    void logMessage(MessageLevel level, String message);
+    void logMessage(MessageLevel level, String message, String location);
 
     /**
      * Get the profiler for current CompUnit.

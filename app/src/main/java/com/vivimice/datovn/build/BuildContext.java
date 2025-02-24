@@ -37,6 +37,11 @@ public interface BuildContext {
     /**
      * Log a message with specified level.
      */
-    void logMessage(MessageLevel level, String message);
+    void logMessage(MessageLevel level, String message, String location);
+
+    /**
+     * Set the progress of current build task. The value should be between 0 and 1.0.
+     */
+    void logProgress(double progress, String message);
 
 }

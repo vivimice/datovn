@@ -110,7 +110,7 @@ public final class IcueUnit extends AbstractCompUnit<IcueSpec> {
             p = pb.start();
             p.getOutputStream().close(); // Close ICUE's stdin to prevent writing to it
         } catch (IOException ex) {
-            logger.debug("Failed to execute ICUE executable", ex);
+            logger.warn("Failed to execute ICUE executable", ex);
             recorder.recordFatalError("Failed to execute ICUE executable: " + ex.getMessage());
             return;
         }
@@ -128,7 +128,7 @@ public final class IcueUnit extends AbstractCompUnit<IcueSpec> {
                     numOfMessages++;
                 }
             } catch (IOException ex) {
-                logger.error("Failed to dump ICUE {} message.", level, ex);
+                logger.warn("Failed to dump ICUE {} message.", level, ex);
             } finally {
                 logger.trace("Dumped {} ICUE {} messages", numOfMessages, level);
             }

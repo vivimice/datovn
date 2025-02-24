@@ -7,3 +7,6 @@ bin
 
 # Ignore IDE specific files
 .vscode
+
+# Intermediate files
+current.diff

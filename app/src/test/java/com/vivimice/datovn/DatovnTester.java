@@ -15,12 +15,16 @@
  */
 package com.vivimice.datovn;
 
+import static com.vivimice.datovn.action.MessageLevel.ERROR;
+import static com.vivimice.datovn.action.MessageLevel.FATAL;
+import static com.vivimice.datovn.action.MessageLevel.WARN;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.FileVisitResult;
@@ -53,6 +57,7 @@ import ch.qos.logback.classic.Level;
 public class DatovnTester {
 
     private static final Logger logger = LoggerFactory.getLogger(DatovnTester.class);
+    private static final Level DEFAULT_LOG_LEVEL = Level.WARN;
 
     private final Path workingDirectory;
     private int passCounter = 0;
@@ -62,6 +67,7 @@ public class DatovnTester {
         workingDirectory = caseDirectory.resolve("working");
         removePathRecursively(workingDirectory);
         copyPathRecursively(caseDirectory.resolve("src"), workingDirectory);
+        setLogLevel(DEFAULT_LOG_LEVEL);
     }
 
     private static void copyPathRecursively(Path source, Path target) throws IOException {
@@ -93,7 +99,7 @@ public class DatovnTester {
     }
 
     public DatovnTester disableTracing() {
-        setLogLevel(Level.DEBUG);
+        setLogLevel(DEFAULT_LOG_LEVEL);
         return this;
     }
 
@@ -133,14 +139,15 @@ public class DatovnTester {
         logger.info("DatovnTester build start (Pass #{})", currentPass);
 
         ResultChecker checker = new ResultChecker();
+        checker.buildContext.logProgress(0, "Test Pass #" + currentPass);
         try {
             new CompBuild(checker.buildContext).run();
             checker.executionException = null;
         } catch (DatovnRuntimeException e) {
             checker.executionException = e;
         }
+        checker.buildContext.logProgress(1, "Done with Pass #" + currentPass);
 
-        logger.info("DatovnTester build stopped (Pass #{})", currentPass);
         return checker;
     }
 
@@ -266,24 +273,36 @@ public class DatovnTester {
         }
 
         @Override
-        public void logMessage(MessageLevel level, String message) {
+        public void logProgress(double progress, String message) {
+            System.out.println(String.format("[%3.0f%%] %s", progress * 100, message));
+        }
+
+        @Override
+        public void logMessage(MessageLevel level, String message, String location) {
             List<String> levelMessages = messages.computeIfAbsent(level, lv -> new ArrayList<>());
             synchronized (levelMessages) {
                 levelMessages.add(message);
-                System.out.println("[" + level + "] " + message);
+            }
+            
+            if (level == FATAL || level == ERROR) {
+                errorCounter.incrementAndGet();
+            } else if (level == WARN) {
+                warningCounter.incrementAndGet();
             }
 
-            switch (level) {
-                case FATAL:
-                case ERROR:
-                    errorCounter.incrementAndGet();
-                    break;
-                case WARN:
-                    warningCounter.incrementAndGet();
-                    break;
-                default:
-                    break;
+            PrintStream stream = switch (level) {
+                case FATAL -> System.err;
+                case ERROR -> System.err;
+                default -> System.out;
             };
+
+            stream.append("       ");
+            stream.append(location).append(" | ");
+            if (level != MessageLevel.INFO) {
+                stream.append(level.toString()).append(": ");
+            }
+            stream.append(message);
+            stream.println();
         }
     }
 

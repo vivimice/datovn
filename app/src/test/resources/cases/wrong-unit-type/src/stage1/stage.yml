@@ -1,0 +1,9 @@
+units:
+- name: dummy1
+  command: jshell dummy.jsh
+- name: dummy2
+  type: icue
+  command: jshell dummy.jsh
+- name: dummy3
+  type: not-a-valid-name
+  command: jshell dummy.jsh

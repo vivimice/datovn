@@ -16,23 +16,36 @@
 package com.vivimice.datovn.stage.bootstrap;
 
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+import com.fasterxml.jackson.annotation.JacksonInject;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.core.JsonLocation;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vivimice.datovn.spec.CompExecSpec;
 
 @JsonTypeInfo(
     use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, 
-    property = "type", defaultImpl = IcueUnitDescriptor.class
+    property = "type", defaultImpl = IcueUnitDescriptor.class, visible = true
 )
 @JsonSubTypes({
-    @JsonSubTypes.Type(value = IcueUnitDescriptor.class, name = "icue"),
+    @JsonSubTypes.Type(value = IcueUnitDescriptor.class, name = "icue")
 })
 public class UnitDescriptor {
 
     private String name;
     private List<String> params;
+    @JacksonInject private JsonLocation location;
+
+    private String type;
+
+    private static final Set<String> VALID_TYPES = Stream
+        .of(UnitDescriptor.class.getDeclaredAnnotation(JsonSubTypes.class).value())
+        .map(type -> type.name())
+        .collect(Collectors.toSet());
 
     public void afterMapping(ObjectMapper mapper) throws IllegalArgumentException {
         if (params == null) {
@@ -45,6 +58,12 @@ public class UnitDescriptor {
 
         if (!CompExecSpec.NAME_PATTERN.matcher(name).matches()) {
             throw new IllegalArgumentException("Illegal exec spec name: " + name);
+        }
+
+        // Jackson maps unmappable type values with defaultImpl, we need to find out the type
+        // is null or malformed
+        if (type != null && !VALID_TYPES.contains(type)) {
+            throw new IllegalArgumentException("Unknown type: " + type);
         }
     }
 
@@ -62,6 +81,22 @@ public class UnitDescriptor {
 
     public void setParams(List<String> params) {
         this.params = params;
+    }
+
+    public JsonLocation getLocation() {
+        return location;
+    }
+
+    public void setLocation(JsonLocation location) {
+        this.location = location;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
     }
 
 }

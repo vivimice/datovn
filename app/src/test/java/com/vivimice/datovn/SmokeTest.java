@@ -44,6 +44,14 @@ public class SmokeTest {
     }
 
     @Test
+    public void wrongUnitTypeTest() throws Exception {
+        new DatovnTester("wrong-unit-type").run()
+            .assertFailure()
+            .assertWithErrors(1)
+            .assertHasMessage(ERROR, s -> s.contains("not-a-valid-name"));
+    }
+
+    @Test
     public void singleStageTest() throws Exception {
         new DatovnTester("single-stage").run()
             .assertSuccess()
@@ -106,14 +114,14 @@ public class SmokeTest {
     public void paramAccessTest() throws Exception {
         var tester = new DatovnTester("param-access");
 
-        tester.run()
+        tester
+            .run()
             .assertSuccess()
             .assertHasMessage(INFO, "Params count: 2")
             .assertHasMessage(INFO, "Param #0: alice")
             .assertHasMessage(INFO, "Param #1: bob");
 
         tester
-            .enableTracing()
             .adjustWorkspacePath("stage1/stage.yml")
                 .byReplaceAll("(?m)^\\s+- bob$", "")
             .run()

@@ -20,6 +20,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
@@ -28,11 +31,18 @@ import com.vivimice.datovn.unit.AbstractCompUnit;
 import com.vivimice.datovn.unit.CompActionRecorder;
 import com.vivimice.datovn.unit.CompUnits;
 import com.vivimice.datovn.unit.UnitContext;
+import com.vivimice.datovn.util.InjectableJsonLocationValues;
+import com.vivimice.datovn.util.JsonUtils;
 
 public class StageBootstrapCompUnit extends AbstractCompUnit<StageBootstrapSpec> {
 
+    private static final Logger logger = LoggerFactory.getLogger(StageBootstrapCompUnit.class);
     private static final ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
     private static final String CONFIG_FILENAME = "stage.yml";
+
+    static {
+        mapper.setInjectableValues(new InjectableJsonLocationValues());
+    }
 
     public StageBootstrapCompUnit(StageBootstrapSpec spec) {
         super(spec);
@@ -44,10 +54,10 @@ public class StageBootstrapCompUnit extends AbstractCompUnit<StageBootstrapSpec>
 
         recorder.recordCheckFileExists(CONFIG_FILENAME);
         if (!Files.exists(path)) {
-            recorder.recordWarning("not found: " + path);
+            recorder.recordWarning("not found", path.toString());
             return;
         } else if (!Files.isRegularFile(path)) {
-            recorder.recordError("not a file: " + path);
+            recorder.recordError("not a file", path.toString());
             return;
         }
 
@@ -56,23 +66,31 @@ public class StageBootstrapCompUnit extends AbstractCompUnit<StageBootstrapSpec>
         try {
             descriptor = mapper.readValue(path.toFile(), StageBootstrapDescriptor.class);
         } catch (JsonProcessingException ex) {
-            recorder.recordError("malformed: " + path + ". cause: " + ex.getMessage());
+            recorder.recordError(ex.getOriginalMessage(), path.toString());
             return;
         } catch (IOException ex) {
-            recorder.recordError("i/o error while reading: " + path + ". error: " + ex.getMessage());
+            logger.warn("i/o error reading bootstram config: {}", path, ex);
+            recorder.recordError(ex.getMessage(), path.toString());
             return;
         }
 
         List<UnitDescriptor> units = descriptor.getUnits();
         if (units != null) {
             for (UnitDescriptor unit : descriptor.getUnits()) {
-                unit.afterMapping(mapper);
+                String declaration = JsonUtils.formatJsonLocation(unit.getLocation(), path.toString());
+                try {
+                    unit.afterMapping(mapper);
+                } catch (IllegalArgumentException ex) {
+                    recorder.recordError(ex.getMessage(), declaration);
+                    continue;
+                }
+
                 CompExecSpec spec = CompUnits.createSpec(unit);
                 if (spec != null) {
                     recorder.recordInfo("Scheduled unit: " + spec.getName());
                     recorder.recordExec(spec);
                 } else {
-                    recorder.recordError("Unsupported unit type: " + unit.getClass().getName());
+                    recorder.recordError("Unsupported unit type: " + unit.getClass().getName(), declaration);
                 }
             }
         }

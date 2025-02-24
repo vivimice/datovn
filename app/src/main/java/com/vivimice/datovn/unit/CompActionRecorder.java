@@ -93,9 +93,14 @@ public class CompActionRecorder {
     }
 
     public void recordMessage(MessageLevel level, String message) {
+        recordMessage(level, message, null);
+    }
+
+    public void recordMessage(MessageLevel level, String message, String location) {
         MessageOutputAction.Sketch sketch = new MessageOutputAction.Sketch();
         sketch.setLevel(level);
         sketch.setMessage(message);
+        sketch.setLocation(location);
         consumer.accept(sketch);
     }
 
@@ -103,16 +108,32 @@ public class CompActionRecorder {
         recordMessage(MessageLevel.FATAL, message);
     }
 
+    public void recordFatalError(String message, String location) {
+        recordMessage(MessageLevel.FATAL, message, location);
+    }
+
     public void recordError(String message) {
         recordMessage(MessageLevel.ERROR, message);
+    }
+
+    public void recordError(String message, String location) {
+        recordMessage(MessageLevel.ERROR, message, location);
     }
 
     public void recordWarning(String message) {
         recordMessage(MessageLevel.WARN, message);
     }
 
+    public void recordWarning(String message, String location) {
+        recordMessage(MessageLevel.WARN, message, location);
+    }
+
     public void recordInfo(String message) {
         recordMessage(MessageLevel.INFO, message);
+    }
+
+    public void recordInfo(String message, String location) {
+        recordMessage(MessageLevel.INFO, message, location);
     }
 
     public void recordExit(int exitCode) {

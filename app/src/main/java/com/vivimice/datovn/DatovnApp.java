@@ -15,6 +15,10 @@
  */
 package com.vivimice.datovn;
 
+import static com.vivimice.datovn.action.MessageLevel.ERROR;
+import static com.vivimice.datovn.action.MessageLevel.FATAL;
+import static com.vivimice.datovn.action.MessageLevel.WARN;
+
 import java.io.PrintStream;
 import java.nio.file.Path;
 import java.util.concurrent.ExecutorService;
@@ -66,14 +70,14 @@ public class DatovnApp {
         int errorCount = buildContext.errorCounter.get();
         int warningCount = buildContext.warningCounter.get();
         if (errorCount > 0) {
-            logger.error("Build failed with {} errors and {} warnings.", errorCount, warningCount);
+            buildContext.logProgress(1, String.format("Build failed with %d errors and %d warnings.", errorCount, warningCount));
             return false;
         }
         
         if (warningCount > 0) {
-            logger.info("Build successful with {} warnings.", warningCount);
+            buildContext.logProgress(1, String.format("Build succeeded with %d warnings.", warningCount));
         } else {
-            logger.info("Build successful.");
+            buildContext.logProgress(1, "Build successful.");
         }
         
         return true;
@@ -108,22 +112,31 @@ public class DatovnApp {
         }
 
         @Override
-        public void logMessage(MessageLevel level, String message) {
-            PrintStream stream;
-            switch (level) {
-                case FATAL:
-                case ERROR:
-                    stream = System.err;
-                    errorCounter.incrementAndGet();
-                    break;
-                case WARN:
-                    stream = System.err;
-                    warningCounter.incrementAndGet();
-                    break;
-                default:
-                    stream = System.out;
+        public void logProgress(double progress, String message) {
+            System.out.println(String.format("[%3.0f%%] %s", progress, message));
+        }
+
+        @Override
+        public void logMessage(MessageLevel level, String message, String location) {
+            if (level == FATAL || level == ERROR) {
+                errorCounter.incrementAndGet();
+            } else if (level == WARN) {
+                warningCounter.incrementAndGet();
+            }
+
+            PrintStream stream = switch (level) {
+                case FATAL -> System.err;
+                case ERROR -> System.err;
+                default -> System.out;
             };
-            stream.println(message);
+
+            stream.append("       ");
+            stream.append(location).append(" | ");
+            if (level != MessageLevel.INFO) {
+                stream.append(level.toString()).append(": ");
+            }
+            stream.append(message);
+            stream.println();
         }
 
     }
