@@ -1,7 +1,7 @@
 # Datovn
 
-Datovn (pronauced "date-oven") is an computation engine for complex data transformations, specially designed for handling various data transformations in game development and beyond. It provides a runtime to define and execute different, codependant data transformation steps as pipelines. 
+Datovn (pronounced "date-oven") is a computation engine designed for complex data transformations, particularly in game development and other domains. It provides a runtime environment to define and execute interdependent data transformation steps as pipelines.
 
-Datovn uses a specification-based approach to define the pipeline, which allows for easy integration with other existing tools, compilers, editors. Inspired by experiences in game data baking, datovn adapts the concept of "Computation Action" to skip up-to-date computations, accelerating the process.
+Datovn employs a specification-based approach to define pipelines, enabling integration with existing tools, compilers, and editors. Inspired by experiences in game data baking, Datovn introduces the concept of "Computation Action" to skip up-to-date computations, significantly speeding up the process.
 
-Datovn is CI friendly, means it can be easily integrated into continuous integration systems for automated testing and deployment.
+Datovn is CI-friendly, making it easy to integrate into continuous integration systems for automated testing and deployment.
