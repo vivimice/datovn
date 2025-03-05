@@ -13,16 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.vivimice.datovn.unit;
+package com.vivimice.datovn.icue.fast;
 
-public interface CompUnit {
-
-    /**
-     * Executes the computation and report the actions as CompAction.Sketch<?> to the given receiver.
-     * 
-     * @param spec computation specification. Won't be <code>null</code>.
-     * @param actionsOutput output stream to write computation actions to. Won't be <code>null</code>.
-     */
-    void execute(UnitContext context, CompActionRecorder recorder);
-
+public record FastIcueFrame(
+    int invocationId,
+    char type,
+    String data // Won't be null
+) {
+    public FastIcueFrame(int invocationId, char type, String data) {
+        assert data != null;
+        assert !data.contains("\r\n") : "no CRLF is allow in frame data";
+        this.invocationId = invocationId;
+        this.type = type;
+        this.data = data;
+    }
 }

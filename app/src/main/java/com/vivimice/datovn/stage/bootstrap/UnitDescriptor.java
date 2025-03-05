@@ -32,7 +32,8 @@ import com.vivimice.datovn.spec.CompExecSpec;
     property = "type", defaultImpl = IcueUnitDescriptor.class, visible = true
 )
 @JsonSubTypes({
-    @JsonSubTypes.Type(value = IcueUnitDescriptor.class, name = "icue")
+    @JsonSubTypes.Type(value = IcueUnitDescriptor.class, name = "icue"),
+    @JsonSubTypes.Type(value = FastIcueUnitDescriptor.class, name = "fast-icue"),
 })
 public class UnitDescriptor {
 

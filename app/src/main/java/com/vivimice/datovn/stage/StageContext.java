@@ -18,6 +18,9 @@ package com.vivimice.datovn.stage;
 import java.nio.file.Path;
 import java.util.concurrent.Executor;
 
+import org.slf4j.MDC;
+import org.slf4j.MDC.MDCCloseable;
+
 import com.vivimice.datovn.action.ActionsStore;
 import com.vivimice.datovn.action.MessageLevel;
 import com.vivimice.datovn.profiler.StageProfiler;
@@ -67,5 +70,9 @@ public interface StageContext {
      * @param description
      */
     void logProgress(double progress, String message);
+
+    default MDCCloseable putMdcClosable() {
+        return MDC.putCloseable("stage", getStageName());
+    }
 
 }

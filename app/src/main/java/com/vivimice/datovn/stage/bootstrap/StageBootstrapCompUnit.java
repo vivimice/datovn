@@ -27,14 +27,14 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.vivimice.datovn.spec.CompExecSpec;
-import com.vivimice.datovn.unit.AbstractCompUnit;
 import com.vivimice.datovn.unit.CompActionRecorder;
+import com.vivimice.datovn.unit.CompUnit;
 import com.vivimice.datovn.unit.CompUnits;
 import com.vivimice.datovn.unit.UnitContext;
 import com.vivimice.datovn.util.InjectableJsonLocationValues;
 import com.vivimice.datovn.util.JsonUtils;
 
-public class StageBootstrapCompUnit extends AbstractCompUnit<StageBootstrapSpec> {
+public class StageBootstrapCompUnit implements CompUnit {
 
     private static final Logger logger = LoggerFactory.getLogger(StageBootstrapCompUnit.class);
     private static final ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
@@ -44,12 +44,8 @@ public class StageBootstrapCompUnit extends AbstractCompUnit<StageBootstrapSpec>
         mapper.setInjectableValues(new InjectableJsonLocationValues());
     }
 
-    public StageBootstrapCompUnit(StageBootstrapSpec spec) {
-        super(spec);
-    }
-
     @Override
-    protected void doCompute(UnitContext ctx, CompActionRecorder recorder) {
+    public void execute(UnitContext ctx, CompActionRecorder recorder) {
         Path path = ctx.getWorkingDirectory().resolve(CONFIG_FILENAME);
 
         recorder.recordCheckFileExists(CONFIG_FILENAME);

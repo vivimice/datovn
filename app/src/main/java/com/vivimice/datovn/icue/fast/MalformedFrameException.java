@@ -13,16 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.vivimice.datovn.unit;
+package com.vivimice.datovn.icue.fast;
 
-public interface CompUnit {
+import java.util.Optional;
 
-    /**
-     * Executes the computation and report the actions as CompAction.Sketch<?> to the given receiver.
-     * 
-     * @param spec computation specification. Won't be <code>null</code>.
-     * @param actionsOutput output stream to write computation actions to. Won't be <code>null</code>.
-     */
-    void execute(UnitContext context, CompActionRecorder recorder);
+public class MalformedFrameException extends Exception {
+
+    private final Optional<Integer> invocationId;
+
+    public MalformedFrameException(String message) {
+        super(message);
+        this.invocationId = Optional.empty();
+    }
+
+    public MalformedFrameException(int invocationId, String message) {
+        super(message);
+        this.invocationId = Optional.of(invocationId);
+    }
+
+    public Optional<Integer> getInvocationId() {
+        return invocationId;
+    }
 
 }

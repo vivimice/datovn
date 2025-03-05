@@ -40,7 +40,6 @@ import com.vivimice.datovn.action.CompAction;
 import com.vivimice.datovn.action.MalformedActionDocumentException;
 import com.vivimice.datovn.action.MessageLevel;
 import com.vivimice.datovn.action.SketchDocumentReader;
-import com.vivimice.datovn.unit.AbstractCompUnit;
 import com.vivimice.datovn.unit.CompActionRecorder;
 import com.vivimice.datovn.unit.CompUnit;
 import com.vivimice.datovn.unit.UnitContext;
@@ -50,17 +49,20 @@ import com.vivimice.datovn.unit.UnitContext;
  * 
  * ICUE stands for "Interface of Computation Unit Executable".
  */
-public final class IcueUnit extends AbstractCompUnit<IcueSpec> {
+public final class IcueUnit implements CompUnit {
 
     private static final Logger logger = LoggerFactory.getLogger(IcueUnit.class);
     private static final ExecutorService outputStreamDumpers = Executors.newWorkStealingPool();
 
+    private final IcueSpec spec;
+
     public IcueUnit(IcueSpec spec) {
-        super(spec);
+        assert spec != null;
+        this.spec = spec;
     }
 
     @Override
-    protected void doCompute(UnitContext ctx, CompActionRecorder recorder) {
+    public void execute(UnitContext ctx, CompActionRecorder recorder) {
         logger.info("Preparing ICUE process ...");
 
         // Create actions output file which ICUE executable will write to
@@ -110,9 +112,7 @@ public final class IcueUnit extends AbstractCompUnit<IcueSpec> {
             p = pb.start();
             p.getOutputStream().close(); // Close ICUE's stdin to prevent writing to it
         } catch (IOException ex) {
-            logger.warn("Failed to execute ICUE executable", ex);
-            recorder.recordFatalError("Failed to execute ICUE executable: " + ex.getMessage());
-            return;
+            throw new DatovnRuntimeException("Failed to execute ICUE executable: " + ex.getMessage());
         }
 
         // Redirect messages from ICUE executable during process execution, stdout as INFO, stderr as ERROR

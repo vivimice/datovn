@@ -13,16 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.vivimice.datovn.unit;
+package com.vivimice.datovn.stage;
 
-public interface CompUnit {
+/**
+ * A service class that survives within a single stage. It can be used to 
+ * manage resources or perform actions specific to the stage's lifecycle.
+ */
+public interface StageScopeService {
 
-    /**
-     * Executes the computation and report the actions as CompAction.Sketch<?> to the given receiver.
-     * 
-     * @param spec computation specification. Won't be <code>null</code>.
-     * @param actionsOutput output stream to write computation actions to. Won't be <code>null</code>.
-     */
-    void execute(UnitContext context, CompActionRecorder recorder);
+    void onInit(StageContext context);
+
+    void onDestroy();
 
 }

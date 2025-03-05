@@ -15,17 +15,11 @@
  */
 package com.vivimice.datovn.stage;
 
-import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Optional;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
-import java.util.function.BiFunction;
-import java.util.function.Consumer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,14 +28,8 @@ import org.slf4j.MDC.MDCCloseable;
 
 import com.vivimice.datovn.DatovnRuntimeException;
 import com.vivimice.datovn.action.ActionsStore;
-import com.vivimice.datovn.action.CompAction;
-import com.vivimice.datovn.action.DirectoryAccessAction;
-import com.vivimice.datovn.action.ExecAction;
-import com.vivimice.datovn.action.ExitAction;
-import com.vivimice.datovn.action.FileAccessAction;
 import com.vivimice.datovn.action.LoadedSketches;
 import com.vivimice.datovn.action.MessageLevel;
-import com.vivimice.datovn.action.MessageOutputAction;
 import com.vivimice.datovn.profiler.ProfilerCloseable;
 import com.vivimice.datovn.profiler.UnitProfiler;
 import com.vivimice.datovn.spec.CompExecSpec;
@@ -50,20 +38,23 @@ import com.vivimice.datovn.unit.CompUnit;
 import com.vivimice.datovn.unit.CompUnits;
 import com.vivimice.datovn.unit.UnitContext;
 import com.vivimice.datovn.util.OffendingPathAccessChecker;
-import com.vivimice.datovn.util.PathAccessOperation;
 
 public class CompStage {
 
     private final static Logger logger = LoggerFactory.getLogger(CompStage.class);
 
     private final StageContext context;
-    private final OffendingPathAccessChecker<String> pathAccessChecker = new OffendingPathAccessChecker<>();
     private final Set<String> scheduledSpecs = Collections.newSetFromMap(new ConcurrentHashMap<>());
-    
+    private final Map<String, StageScopeService> services = new ConcurrentHashMap<>();
+
+    // Note: Path access checker is not thread-safe.
+    private final OffendingPathAccessChecker<String> pathAccessChecker = new OffendingPathAccessChecker<>();
+
     // Variables that must be protected by <code>synchronized (this) {}</code> block
     // Number of remaining unfinished computations
     private int remainExecutions = 0;
     private int totalExecutions = 0;
+    private boolean started = false;
 
     public CompStage(StageContext context) {
         assert context != null;
@@ -81,7 +72,7 @@ public class CompStage {
      */
     public void start(CompExecSpec initialSpec) {
         try (
-            MDCCloseable stageMdcc = MDC.putCloseable("stage", context.getStageName());
+            MDCCloseable stageMdcc = context.putMdcClosable();
             ProfilerCloseable pc = context.getProfiler().wrapStageRun(context.getStageName());
         ) {
             assert initialSpec != null;
@@ -90,7 +81,8 @@ public class CompStage {
             
             synchronized (this) {
                 // Check if already started
-                assert remainExecutions == 0;
+                assert !started : "Stage already started";
+                started = true;
                 totalExecutions = 0;
 
                 // Schedule the initial computation
@@ -106,6 +98,13 @@ public class CompStage {
                     }
                 }
             }
+
+            // Destroy all services after finishing the stage
+            services.forEach((name, service) -> {
+                logger.debug("Destroying service: {}", name);
+                service.onDestroy();
+            });
+
             logger.info("Stage finished");
         }
     }
@@ -134,22 +133,22 @@ public class CompStage {
                     double progress = 1d * (totalExecutions - remainExecutions) / totalExecutions;
                     context.logProgress(progress, "Building unit: " + spec.getName());
                     
-                    UnitContext execContext = new UnitContextImpl(profiler, spec);
+                    UnitContext unitContext = new UnitContextImpl(context, profiler, spec, services);
                     try (
                         MDCCloseable unitMdcc = MDC.putCloseable("unit", spec.getName());
                         ProfilerCloseable pc = profiler.wrapExecution();
                     ) {
                         // execute computation
-                        execute(spec, execContext);
+                        execute(spec, unitContext);
                     } catch (DatovnRuntimeException ex) {
                         // log and handle expected runtime exceptions
-                        execContext.logMessage(MessageLevel.FATAL, ex.getMessage(), null);
+                        unitContext.logMessage(MessageLevel.FATAL, ex.getMessage(), null);
                         if (ex.getCause() != null) {
                             logger.warn("Datovn runtime exception", ex);
                         }
                     } catch (RuntimeException ex) {
                         // log and handle unhandled runtime exception, as last resort
-                        execContext.logMessage(MessageLevel.FATAL, "internal error: " + ex.getMessage(), null);
+                        unitContext.logMessage(MessageLevel.FATAL, "internal error: " + ex.getMessage(), null);
                         logger.warn("Unhandled runtime exception during execution", ex);
                     } finally {
                         logger.debug("Computation finished");
@@ -215,171 +214,5 @@ public class CompStage {
         for (CompExecSpec subExecSpec : actionProcessor.getInvocations()) {
             schedule(subExecSpec);
         }
-    }
-
-    private class UnitContextImpl implements UnitContext {
-
-        private final UnitProfiler profiler;
-        private final CompExecSpec spec;
-
-        UnitContextImpl(UnitProfiler profiler, CompExecSpec spec) {
-            this.profiler = profiler;
-            this.spec = spec;
-        }
-
-        @Override
-        public Path getWorkingDirectory() {
-            return context.getStageWorkingDir();
-        }
-
-        @Override
-        public void logMessage(MessageLevel level, String message, String loc) {
-            String location = spec.getName();
-            if (loc != null && !loc.isBlank()) {
-                location += " (" + loc + ")";
-            }
-
-            context.logMessage(level, message, location);
-        }
-
-        @Override
-        public UnitProfiler getProfiler() {
-            return profiler;
-        }
-
-    }
-
-    private static record ProcessingError (String message, String location) {}
-
-    private static class CompActionProcessor implements Consumer<CompAction.Sketch<?>> {
-
-        private final List<CompAction.Sketch<?>> recordedSketches = new LinkedList<>();
-        private final List<CompExecSpec> invocations = new ArrayList<>();
-        private final StageContext stageContext;
-        private final UnitContext execContext;
-        private final OffendingPathAccessChecker<String> pathAccessChecker;
-        private final CompExecSpec spec;
-        private final List<ProcessingError> processingErrors = new ArrayList<>();
-
-        private boolean hasFatalError = false;
-        private Optional<Integer> explicitExitCode = Optional.empty();
-        private boolean offendingPathAccessReported = false;
-
-        CompActionProcessor(StageContext stageContext, UnitContext execContext, OffendingPathAccessChecker<String> pathAccessChecker, CompExecSpec spec) {
-            assert stageContext != null;
-            assert execContext != null;
-            assert pathAccessChecker != null;
-            assert spec != null;
-
-            this.pathAccessChecker = pathAccessChecker;
-            this.stageContext = stageContext;
-            this.execContext = execContext;
-            this.spec = spec;
-        }
-
-        @Override
-        public synchronized void accept(CompAction.Sketch<?> sketch) {
-            recordedSketches.add(sketch);
-
-            switch (sketch) {
-                case ExecAction.Sketch execSketch:
-                    // we record exec sketches for subsequent execution.
-                    invocations.add(execSketch.getSpec());
-                    break;
-                    
-                case FileAccessAction.Sketch fileAccessSketch:
-                    // we check offending path access against operations from other compunits
-                    checkPathAccess(fileAccessSketch);
-                    break;
-
-                case DirectoryAccessAction.Sketch directoryAccessSketch:
-                    // we check offending path access against operations from other compunits
-                    checkPathAccess(directoryAccessSketch);
-                    break;
-
-                case ExitAction.Sketch exitSketch:
-                    if (explicitExitCode.isPresent()) {
-                        reportProcessingError("Explicit exit code already set. Cannot override with another one.", null);
-                    }
-                    explicitExitCode = Optional.of(exitSketch.getExitCode());
-                    if (hasFatalError && exitSketch.getExitCode() == 0) {
-                        reportProcessingError("Exit code cannot be zero while there are fatal errors reported.", null);
-                    }
-                    break;
-
-                case MessageOutputAction.Sketch messageSketch:
-                    MessageLevel level = messageSketch.getLevel();
-                    String message = messageSketch.getMessage();
-                    String location = messageSketch.getLocation();
-                    // we record there was a fatal error
-                    hasFatalError |= (level == MessageLevel.FATAL);
-                    // we direct all messages to execution context
-                    execContext.logMessage(level, message, location);
-                    execContext.getProfiler().onMessage(level, message);
-                    break;
-
-                default:
-                   break;
-            }
-        }
-
-        public List<CompExecSpec> getInvocations() {
-            return invocations;
-        }
-
-        private void checkPathAccess(FileAccessAction.Sketch sketch) {
-            if (offendingPathAccessReported) {
-                return;
-            }
-
-            checkPathAccess(sketch.getPath(), switch (sketch.getMode()) {
-                case CREATE -> pathAccessChecker::onFileCreation;
-                case DELETE -> pathAccessChecker::onPathRemoval;
-                case READ -> pathAccessChecker::onFileRead;
-                case WRITE -> pathAccessChecker::onFileWrite;
-                case CHECK_EXISTENCE -> pathAccessChecker::onCheckExistence;
-                // should never happen
-                default -> (path, owner) -> { 
-                    throw new AssertionError(); 
-                };
-            }, "file access with mode '" + sketch.getMode() + "'");
-        }
-
-        private void checkPathAccess(DirectoryAccessAction.Sketch sketch) {
-            if (offendingPathAccessReported) {
-                return;
-            }
-
-            checkPathAccess(sketch.getPath(), switch (sketch.getMode()) {
-                case CREATE -> pathAccessChecker::onDirectoryCreation;
-                case DELETE -> pathAccessChecker::onPathRemoval;
-                case LIST -> pathAccessChecker::onDirectoryListing;
-                case CHECK_EXISTENCE -> pathAccessChecker::onCheckExistence;
-                // should never happen
-                default -> (path, owner) -> { 
-                    throw new AssertionError(); 
-                };
-            }, "directory access with mode '" + sketch.getMode() + "'");
-        }
-
-        private void checkPathAccess(String path, BiFunction<Path, String, PathAccessOperation<String>> checker, String description) {
-            Path p = stageContext.getStageWorkingDir().resolve(path).normalize().toAbsolutePath();
-
-            PathAccessOperation<String> offendingOperation;
-            synchronized (pathAccessChecker) { // checker is backed by OffendingPathAccessChecker, which is not thread-safe
-                offendingOperation = checker.apply(p, spec.getName());
-            }
-
-            if (offendingOperation != null) {
-                CompActionRecorder reporter = new CompActionRecorder(this);
-                reporter.recordFatalError("Our " + description + " at path '" + p + "' offends operation from '" + offendingOperation.owner() + "': " + offendingOperation.reason());
-                offendingPathAccessReported = true;
-            }
-        }
-
-        private void reportProcessingError(String message, String location) {
-            processingErrors.add(new ProcessingError(message, location));
-        }
-
     }
 }

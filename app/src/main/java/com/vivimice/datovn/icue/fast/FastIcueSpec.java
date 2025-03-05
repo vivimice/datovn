@@ -13,24 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.vivimice.datovn.icue;
+package com.vivimice.datovn.icue.fast;
 
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.vivimice.datovn.icue.CommandBasedSpec;
 
-public final class IcueSpec extends CommandBasedSpec {
+public final class FastIcueSpec extends CommandBasedSpec {
 
     @JsonCreator
-    public IcueSpec(
+    public FastIcueSpec(
         @JsonProperty("name") String name, 
         @JsonProperty("revision") String revision, 
         @JsonProperty("executable") String executable, 
         @JsonProperty("args") List<String> args, 
         @JsonProperty("params") List<String> params
     ) {
-        super("icue", name, revision, executable, args, params);
+        super("fast-icue", name, revision, executable, args, params);
     }
 
 }

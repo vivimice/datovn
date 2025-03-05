@@ -13,16 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.vivimice.datovn.unit;
+package com.vivimice.datovn.icue.fast;
 
-public interface CompUnit {
+public class FastIcueInvocationException extends Exception {
 
-    /**
-     * Executes the computation and report the actions as CompAction.Sketch<?> to the given receiver.
-     * 
-     * @param spec computation specification. Won't be <code>null</code>.
-     * @param actionsOutput output stream to write computation actions to. Won't be <code>null</code>.
-     */
-    void execute(UnitContext context, CompActionRecorder recorder);
+    public FastIcueInvocationException(String message) {
+        super(message);
+    }
+
+    public FastIcueInvocationException(String message, Throwable cause) {
+        super(message, cause);
+    }
 
 }

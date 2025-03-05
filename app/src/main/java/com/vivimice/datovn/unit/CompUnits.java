@@ -18,7 +18,10 @@ package com.vivimice.datovn.unit;
 import com.vivimice.datovn.DatovnRuntimeException;
 import com.vivimice.datovn.icue.IcueSpec;
 import com.vivimice.datovn.icue.IcueUnit;
+import com.vivimice.datovn.icue.fast.FastIcueSpec;
+import com.vivimice.datovn.icue.fast.FastIcueUnit;
 import com.vivimice.datovn.spec.CompExecSpec;
+import com.vivimice.datovn.stage.bootstrap.FastIcueUnitDescriptor;
 import com.vivimice.datovn.stage.bootstrap.IcueUnitDescriptor;
 import com.vivimice.datovn.stage.bootstrap.StageBootstrapCompUnit;
 import com.vivimice.datovn.stage.bootstrap.StageBootstrapSpec;
@@ -35,7 +38,8 @@ public class CompUnits {
     public static CompUnit create(CompExecSpec spec) {
         return switch (spec) {
             case IcueSpec icueSpec -> new IcueUnit(icueSpec);
-            case StageBootstrapSpec stageBootstrapSpec -> new StageBootstrapCompUnit(stageBootstrapSpec);
+            case FastIcueSpec fastIcueSpec -> new FastIcueUnit(fastIcueSpec);
+            case StageBootstrapSpec stageBootstrapSpec -> new StageBootstrapCompUnit();
             case null -> throw new NullPointerException("specification can't be null");
             default -> throw new DatovnRuntimeException("Unknown computation specification: " + spec.getName());
         };
@@ -51,6 +55,13 @@ public class CompUnits {
         assert descriptor != null;
         return switch (descriptor) {
             case IcueUnitDescriptor unit -> new IcueSpec(
+                unit.getName(), 
+                unit.getRevision(),
+                unit.getExecutable(),
+                unit.getArgs(), 
+                unit.getParams()
+            );
+            case FastIcueUnitDescriptor unit -> new FastIcueSpec(
                 unit.getName(), 
                 unit.getRevision(),
                 unit.getExecutable(),

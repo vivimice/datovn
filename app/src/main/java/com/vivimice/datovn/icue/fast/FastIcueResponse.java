@@ -13,26 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.vivimice.datovn.unit;
+package com.vivimice.datovn.icue.fast;
 
-import com.vivimice.datovn.spec.CompExecSpec;
-
-public abstract class AbstractCompUnit<T extends CompExecSpec> implements CompUnit {
-
-    protected final T spec;
-
-    protected AbstractCompUnit(T spec) {
-        if (spec == null) {
-            throw new NullPointerException();
-        }
-        this.spec = spec;
-    }
-
-    @Override
-    public void execute(UnitContext ctx, CompActionRecorder receiver) {
-        doCompute(ctx, receiver);
-    }
-
-    protected abstract void doCompute(UnitContext ctx, CompActionRecorder receiver);
+public record FastIcueResponse(int statusCode, String statusMessage, String data) {
 
 }
